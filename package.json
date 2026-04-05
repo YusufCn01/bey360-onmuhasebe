@@ -11,7 +11,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
-    "db:bootstrap": "node scripts/db-bootstrap.cjs"
+    "db:bootstrap": "node scripts/db-bootstrap.cjs",
+    "tunnel": "powershell -ExecutionPolicy Bypass -File scripts/start-cloudflare-tunnel.ps1"
   },
   "dependencies": {
     "@prisma/client": "^6.19.2",
