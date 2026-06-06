@@ -7,11 +7,14 @@ import { useMemo, useState } from "react";
 type ProductFormState = {
   code: string;
   name: string;
+  kind: "PRODUCT" | "SERVICE";
   barcode: string;
   description: string;
   category: string;
   brand: string;
   imageUrl: string;
+  withholdingRate: string;
+  withholdingCode: string;
   unit: string;
   salePrice: string;
   salePrice2: string;
@@ -28,11 +31,14 @@ type ProductTab = "genel" | "fiyat" | "ek";
 const initialForm: ProductFormState = {
   code: "",
   name: "",
+  kind: "PRODUCT",
   barcode: "",
   description: "",
   category: "",
   brand: "",
   imageUrl: "",
+  withholdingRate: "0",
+  withholdingCode: "601",
   unit: "Adet",
   salePrice: "0",
   salePrice2: "0",
@@ -43,7 +49,7 @@ const initialForm: ProductFormState = {
   vatRate: "20",
 };
 
-const unitOptions = ["Adet", "Kg", "Litre", "Paket", "Hizmet", "Koli"];
+const unitOptions = ["Adet", "Kg", "Litre", "Paket", "Hizmet", "Koli", "Saat", "Gün"];
 const quickCategories = ["Gıda", "İçecek", "Elektronik", "Hizmet", "Yedek Parça", "Ofis"];
 const quickBrands = ["Bey360", "Logo", "Özel Marka", "Distribütör", "İthal", "Yerel"];
 
@@ -108,6 +114,15 @@ export function ProductForm() {
     const value = sale + (sale * vat) / 100;
     return formatCurrency(String(Number.isFinite(value) ? value : 0));
   }, [form.salePrice, form.vatRate]);
+
+  const withholdingPreview = useMemo(() => {
+    const sale = Number(form.salePrice || 0);
+    const rate = Number(form.withholdingRate || 0);
+    if (form.kind !== "SERVICE" || !Number.isFinite(rate) || rate <= 0) {
+      return 0;
+    }
+    return sale * (rate / 100);
+  }, [form.kind, form.salePrice, form.withholdingRate]);
 
   function patchField<K extends keyof ProductFormState>(key: K, value: ProductFormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -211,6 +226,33 @@ export function ProductForm() {
             <>
               <Section title="Ürün Kimliği" description="Kartın temel bilgileri ve satışta görünecek ana alanlar.">
                 <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2 md:col-span-2">
+                    <Label>Kart Türü</Label>
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          patchField("kind", "PRODUCT");
+                          patchField("unit", form.unit === "Hizmet" ? "Adet" : form.unit);
+                          patchField("withholdingRate", "0");
+                        }}
+                        className={form.kind === "PRODUCT" ? "rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-extrabold text-white" : "rounded-full border border-[var(--line)] bg-white px-4 py-2 text-sm font-bold text-slate-600"}
+                      >
+                        Ürün
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          patchField("kind", "SERVICE");
+                          patchField("unit", "Hizmet");
+                          patchField("stockQty", "0");
+                        }}
+                        className={form.kind === "SERVICE" ? "rounded-full bg-[var(--brand)] px-4 py-2 text-sm font-extrabold text-white" : "rounded-full border border-[var(--line)] bg-white px-4 py-2 text-sm font-bold text-slate-600"}
+                      >
+                        Hizmet
+                      </button>
+                    </div>
+                  </div>
                   <label className="space-y-2">
                     <Label>Ürün Kodu</Label>
                     <input value={form.code} onChange={(event) => patchField("code", event.target.value)} placeholder="URN-0001" required />
@@ -220,22 +262,22 @@ export function ProductForm() {
                     <input value={form.barcode} onChange={(event) => patchField("barcode", event.target.value)} placeholder="8680000000000" />
                   </label>
                   <label className="space-y-2">
-                    <Label>Birim</Label>
-                    <select value={form.unit} onChange={(event) => patchField("unit", event.target.value)}>
+                      <Label>{form.kind === "SERVICE" ? "Hizmet Birimi" : "Birim"}</Label>
+                      <select value={form.unit} onChange={(event) => patchField("unit", event.target.value)}>
                       {unitOptions.map((unit) => (
                         <option key={unit} value={unit}>{unit}</option>
                       ))}
                     </select>
                   </label>
                   <label className="space-y-2 md:col-span-2">
-                    <Label>Ürün / Hizmet Adı</Label>
-                    <input value={form.name} onChange={(event) => patchField("name", event.target.value)} placeholder="Örn: Espresso Çekirdeği 1 kg" required />
+                      <Label>{form.kind === "SERVICE" ? "Hizmet Adı" : "Ürün Adı"}</Label>
+                      <input value={form.name} onChange={(event) => patchField("name", event.target.value)} placeholder={form.kind === "SERVICE" ? "Örn: Danışmanlık Hizmeti" : "Örn: Espresso Çekirdeği 1 kg"} required />
                   </label>
                 </div>
               </Section>
 
-              <Section title="Vergi Bilgisi" description="KDV oranını sabitleyin veya hızlı seçimle belirleyin.">
-                <div className="grid gap-4 md:grid-cols-[220px_1fr] md:items-end">
+              <Section title="Vergi Bilgisi" description={form.kind === "SERVICE" ? "KDV ve tevkifat alanları e-Fatura düzenine uyumlu tutulur." : "KDV oranını sabitleyin veya hızlı seçimle belirleyin."}>
+                <div className={`grid gap-4 ${form.kind === "SERVICE" ? "md:grid-cols-3" : "md:grid-cols-[220px_1fr] md:items-end"}`}>
                   <label className="space-y-2">
                     <Label>KDV Oranı</Label>
                     <input type="number" step="0.01" min="0" max="100" value={form.vatRate} onChange={(event) => patchField("vatRate", event.target.value)} />
@@ -253,9 +295,26 @@ export function ProductForm() {
                           %{rate}
                         </button>
                       ))}
+                      </div>
                     </div>
-                  </div>
+                  {form.kind === "SERVICE" ? (
+                    <>
+                      <label className="space-y-2">
+                        <Label>Tevkifat Oranı</Label>
+                        <input type="number" step="0.01" min="0" max="100" value={form.withholdingRate} onChange={(event) => patchField("withholdingRate", event.target.value)} />
+                      </label>
+                      <label className="space-y-2">
+                        <Label>Tevkifat Kodu</Label>
+                        <input value={form.withholdingCode} onChange={(event) => patchField("withholdingCode", event.target.value)} placeholder="601" />
+                      </label>
+                    </>
+                  ) : null}
                 </div>
+                {form.kind === "SERVICE" ? (
+                  <div className="mt-4 rounded-[14px] border border-sky-100 bg-sky-50 px-4 py-4 text-sm text-sky-900">
+                    Bu hizmet kartı satışta seçildiğinde tevkifat oranı faturaya taşınır ve e-Fatura / e-Arşiv UBL çıktısında tevkifat alanı oluşturulur.
+                  </div>
+                ) : null}
               </Section>
             </>
           ) : null}
@@ -274,7 +333,7 @@ export function ProductForm() {
                   </label>
                   <label className="space-y-2">
                     <Label>Stok Miktarı</Label>
-                    <input type="number" step="0.001" value={form.stockQty} onChange={(event) => patchField("stockQty", event.target.value)} />
+                    <input type="number" step="0.001" value={form.stockQty} onChange={(event) => patchField("stockQty", event.target.value)} disabled={form.kind === "SERVICE"} />
                   </label>
                 </div>
               </Section>
@@ -402,6 +461,7 @@ export function ProductForm() {
           <Section title="Kart Özeti" description="Girdiğiniz değerlerin canlı özeti.">
             <div className="space-y-3">
               <SummaryRow label="Kart Durumu" value="Aktif" />
+              <SummaryRow label="Kart Türü" value={form.kind === "SERVICE" ? "Hizmet" : "Ürün"} />
               <SummaryRow label="Barkod" value={form.barcode || "-"} />
               <SummaryRow label="Kategori" value={form.category || "-"} />
               <SummaryRow label="Marka" value={form.brand || "-"} />
@@ -410,7 +470,14 @@ export function ProductForm() {
               <SummaryRow label="Satış Fiyatı 2" value={formatCurrency(form.salePrice2)} />
               <SummaryRow label="Alış Fiyatı" value={formatCurrency(form.purchasePrice)} />
               <SummaryRow label="KDV Dahil Satış" value={grossSalePrice} />
-              <SummaryRow label="Stok Miktarı" value={`${Number(form.stockQty || 0).toLocaleString("tr-TR")} ${form.unit}`} />
+              {form.kind === "SERVICE" ? (
+                <>
+                  <SummaryRow label="Tevkifat" value={`%${Number(form.withholdingRate || 0).toLocaleString("tr-TR")}`} />
+                  <SummaryRow label="Tevkifat Tutarı" value={formatCurrency(String(withholdingPreview))} />
+                </>
+              ) : (
+                <SummaryRow label="Stok Miktarı" value={`${Number(form.stockQty || 0).toLocaleString("tr-TR")} ${form.unit}`} />
+              )}
             </div>
           </Section>
 

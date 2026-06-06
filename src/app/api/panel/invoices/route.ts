@@ -11,6 +11,7 @@ type InvoiceItemInput = {
   quantity?: string | number;
   unitPrice?: string | number;
   vatRate?: string | number;
+  withholdingRate?: string | number;
 };
 
 export async function POST(request: NextRequest) {
@@ -64,18 +65,23 @@ export async function POST(request: NextRequest) {
     const quantity = Number(item.quantity ?? 0);
     const unitPrice = Number(item.unitPrice ?? 0);
     const vatRate = Number(item.vatRate ?? 0);
+    const withholdingRate = Number(item.withholdingRate ?? product.withholdingRate ?? 0);
     if (!Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(unitPrice) || unitPrice < 0 || !Number.isFinite(vatRate) || vatRate < 0) {
       throw new Error(`Kalem #${index + 1} için miktar, fiyat ve KDV bilgileri geçerli olmalıdır.`);
     }
 
     const subtotal = quantity * unitPrice;
     const vatTotal = subtotal * (vatRate / 100);
+    const effectiveWithholdingRate = product.kind === "SERVICE" && direction === InvoiceDirection.SALES ? withholdingRate : 0;
+    const withholdingAmount = subtotal * (effectiveWithholdingRate / 100);
     return {
       productId: product.id,
       description: product.name,
       quantity,
       unitPrice,
       vatRate,
+      withholdingRate: effectiveWithholdingRate,
+      withholdingAmount,
       subtotal,
       vatTotal,
       lineTotal: subtotal + vatTotal,
@@ -84,6 +90,7 @@ export async function POST(request: NextRequest) {
 
   const subtotal = normalizedItems.reduce((sum, item) => sum + item.subtotal, 0);
   const vatTotal = normalizedItems.reduce((sum, item) => sum + item.vatTotal, 0);
+  const withholdingTotal = normalizedItems.reduce((sum, item) => sum + item.withholdingAmount, 0);
   const grandTotal = normalizedItems.reduce((sum, item) => sum + item.lineTotal, 0);
 
   const invoiceNo = body?.invoiceNo?.trim() || (await getNextDocumentNumber(context.tenant.id, direction === InvoiceDirection.SALES ? "SALES_INVOICE" : "PURCHASE_INVOICE"));
@@ -105,6 +112,7 @@ export async function POST(request: NextRequest) {
         salesInvoiceKind: direction === InvoiceDirection.SALES ? body?.salesInvoiceKind ?? SalesInvoiceKind.WHOLESALE : null,
         subtotal,
         vatTotal,
+        withholdingTotal,
         grandTotal,
         paidTotal: 0,
         note: body?.note?.trim() || null,
@@ -115,6 +123,8 @@ export async function POST(request: NextRequest) {
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             vatRate: item.vatRate,
+            withholdingRate: item.withholdingRate,
+            withholdingAmount: item.withholdingAmount,
             lineTotal: item.lineTotal,
           })),
         },
@@ -127,7 +137,15 @@ export async function POST(request: NextRequest) {
         where: { id: body.customerId },
         data: { currentDebt: { increment: grandTotal } },
       });
-      await ensureEInvoiceDraft(invoice.id, context.tenant.id);
+      const eInvoiceDocument = await ensureEInvoiceDraft(invoice.id, context.tenant.id);
+      const nextInvoiceNo = await getNextDocumentNumber(context.tenant.id, direction === InvoiceDirection.SALES ? "SALES_INVOICE" : "PURCHASE_INVOICE");
+
+      revalidatePath("/panel/faturalar");
+      revalidatePath("/panel");
+      revalidatePath("/panel/cari");
+      revalidatePath("/panel/ayarlar/e-fatura");
+
+      return NextResponse.json({ success: true, data: { invoice, nextInvoiceNo, eInvoiceDocumentId: eInvoiceDocument?.id ?? null } });
     }
 
     if (direction === InvoiceDirection.PURCHASE && body?.supplierId) {
@@ -143,14 +161,13 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const nextInvoiceNo = await getNextDocumentNumber(context.tenant.id, direction === InvoiceDirection.SALES ? "SALES_INVOICE" : "PURCHASE_INVOICE");
-
     revalidatePath("/panel/faturalar");
     revalidatePath("/panel");
     revalidatePath("/panel/cari");
     revalidatePath("/panel/ayarlar/e-fatura");
 
-    return NextResponse.json({ success: true, data: { invoice, nextInvoiceNo } });
+    const nextInvoiceNo = await getNextDocumentNumber(context.tenant.id, direction === InvoiceDirection.SALES ? "SALES_INVOICE" : "PURCHASE_INVOICE");
+    return NextResponse.json({ success: true, data: { invoice, nextInvoiceNo, eInvoiceDocumentId: null } });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Fatura oluşturulamadı.";
     return NextResponse.json({ success: false, error: message }, { status: 422 });

@@ -5,9 +5,6 @@ import { db } from "@/lib/db";
 import { encryptHizliCredentials } from "@/lib/integrations/hizli-bilisim";
 import { getTenantRouteContext } from "@/lib/session-context";
 
-const SAMPLE_TEST_SECRET_KEY = "e22f0bbe47740722984122552c552b3d284d";
-const SAMPLE_TEST_API_KEY = "e22f0bbe1774";
-
 export async function POST(request: NextRequest) {
   const context = await getTenantRouteContext();
   if (!context) {
@@ -17,40 +14,30 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json().catch(() => null)) as
       | {
-          serviceSecretKey?: string;
-          serviceApiKey?: string;
           serviceUsername?: string;
           servicePassword?: string;
           serviceCompanyCode?: string;
           serviceEndpoint?: string;
           serviceCreditCount?: string | number;
+          serviceMeslekMensubuKey?: string;
         }
       | null;
 
     const current = await db.eInvoiceSettings.findUnique({ where: { tenantId: context.tenant.id } });
-    const secretKey = body?.serviceSecretKey?.trim() || current?.serviceSecretKey || null;
-    const apiKey = body?.serviceApiKey?.trim() || current?.serviceApiKey || null;
+    const envSecretKey = process.env.HIZLI_BILISIM_SECRET_KEY?.trim() || null;
+    const envApiKey = process.env.HIZLI_BILISIM_API_KEY?.trim() || null;
+    const secretKey = current?.serviceSecretKey || envSecretKey || null;
+    const apiKey = current?.serviceApiKey || envApiKey || null;
     const endpoint = body?.serviceEndpoint?.trim() || current?.serviceEndpoint || "";
+    const meslekKey = body?.serviceMeslekMensubuKey?.trim() || current?.serviceMeslekMensubuKey || null;
     const plainUsername = body?.serviceUsername?.trim() || "";
     const plainPassword = body?.servicePassword?.trim() || "";
-    const normalizedEndpoint = endpoint.toLowerCase();
-    const isLiveEndpoint = normalizedEndpoint.includes("econnect.hizliteknoloji.com.tr") && !normalizedEndpoint.includes("econnecttest");
 
     let encryptedUsername = current?.serviceUsername ?? null;
     let encryptedPassword = current?.servicePassword ?? null;
 
     if ((plainUsername || plainPassword) && !secretKey) {
-      return NextResponse.json({ success: false, error: "Kullanıcı bilgilerini şifrelemek için Secret Key zorunludur." }, { status: 422 });
-    }
-
-    if (isLiveEndpoint && (secretKey === SAMPLE_TEST_SECRET_KEY || apiKey === SAMPLE_TEST_API_KEY)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Canlı endpoint seçiliyken mailde paylaşılan test SecretKey / ApiKey kullanılamaz. Canlı ortam için Hızlı Bilişim tarafından verilen gerçek anahtarları kullanın.",
-        },
-        { status: 422 },
-      );
+      return NextResponse.json({ success: false, error: "Developer tarafından tanımlı Secret Key bulunamadı." }, { status: 422 });
     }
 
     if (plainUsername || plainPassword) {
@@ -86,6 +73,7 @@ export async function POST(request: NextRequest) {
         servicePassword: encryptedPassword,
         serviceCompanyCode: body?.serviceCompanyCode?.trim() || current?.serviceCompanyCode || null,
         serviceEndpoint: endpoint || null,
+        serviceMeslekMensubuKey: meslekKey,
         serviceCreditCount: typeof parsedCreditCount === "number" && Number.isFinite(parsedCreditCount) ? Math.max(0, Math.floor(parsedCreditCount)) : null,
         serviceCreditUpdatedAt: new Date(),
       },
@@ -98,6 +86,7 @@ export async function POST(request: NextRequest) {
         servicePassword: encryptedPassword,
         serviceCompanyCode: body?.serviceCompanyCode?.trim() || null,
         serviceEndpoint: endpoint || null,
+        serviceMeslekMensubuKey: meslekKey,
         serviceCreditCount: typeof parsedCreditCount === "number" && Number.isFinite(parsedCreditCount) ? Math.max(0, Math.floor(parsedCreditCount)) : null,
         serviceCreditUpdatedAt: new Date(),
       },

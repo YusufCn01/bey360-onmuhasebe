@@ -102,6 +102,11 @@ enum CustomerType {
   CORPORATE
 }
 
+enum ProductKind {
+  PRODUCT
+  SERVICE
+}
+
 enum SalesInvoiceKind {
   WHOLESALE
   RETAIL
@@ -195,18 +200,28 @@ enum ReminderChannel {
   WHATSAPP
 }
 
+enum PackageChangeRequestStatus {
+  OPEN
+  APPROVED
+  REJECTED
+}
+
 model User {
   id             String       @id @default(cuid())
   email          String       @unique
+  emailVerifiedAt DateTime?
   passwordHash   String
   fullName       String
   phone          String?
+  avatarUrl      String?
   globalRole     GlobalRole   @default(USER)
   isActive       Boolean      @default(true)
   lastLoginAt    DateTime?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   memberships    Membership[]
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens PasswordResetToken[]
   createdTenants Tenant[]     @relation("TenantCreatedBy")
   ownedCrmLeads  CrmLead[]    @relation("CrmLeadOwner")
   crmLeadNotes   CrmLeadNote[]
@@ -232,7 +247,10 @@ model Tenant {
   phone              String?
   email              String?
   status             TenantStatus        @default(TRIAL)
-  planName           String              @default("Başlangıç")
+  planName           String              @default("BaÅŸlangÄ±Ã§")
+  onboardingCompletedAt DateTime?
+  onboardingDraftJson String?
+  onboardingCurrentStep Int              @default(0)
   trialEndsAt        DateTime?
   createdByUserId    String?
   createdAt          DateTime            @default(now())
@@ -259,9 +277,56 @@ model Tenant {
   dealerApplications DealerApplication[]
   eInvoiceSettings   EInvoiceSettings?
   eInvoiceDocuments  EInvoiceDocument[]
+  packageChangeRequests PackageChangeRequest[]
   crmLeads           CrmLead[]
   crmLeadNotes       CrmLeadNote[]
   crmTasks           CrmTask[]
+}
+
+model EmailVerificationToken {
+  id         String   @id @default(cuid())
+  userId     String
+  email      String
+  token      String   @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([email, expiresAt])
+  @@index([userId, createdAt])
+}
+
+model PasswordResetToken {
+  id         String   @id @default(cuid())
+  userId     String
+  email      String
+  token      String   @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([email, expiresAt])
+  @@index([userId, createdAt])
+}
+
+model PackageChangeRequest {
+  id              String                     @id @default(cuid())
+  tenantId        String
+  targetPlanId    String
+  currentPlanName String
+  note            String?
+  reviewNote      String?
+  reviewedAt      DateTime?
+  reviewedByName  String?
+  status          PackageChangeRequestStatus @default(OPEN)
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+  tenant          Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  targetPlan      PackagePlan                @relation(fields: [targetPlanId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, createdAt])
 }
 
 model Membership {
@@ -333,6 +398,7 @@ model PackagePlan {
   updatedAt      DateTime            @updatedAt
   tenants        Tenant[]
   applications   DealerApplication[]
+  changeRequests PackageChangeRequest[]
 }
 
 model Customer {
@@ -406,11 +472,14 @@ model Product {
   tenantId      String
   code          String
   name          String
+  kind          ProductKind      @default(PRODUCT)
   barcode       String?
   description   String?
   category      String?
   brand         String?
   imageUrl      String?
+  withholdingRate Float          @default(0)
+  withholdingCode String?
   unit          String           @default("Adet")
   salePrice     Float            @default(0)
   salePrice2    Float            @default(0)
@@ -522,6 +591,7 @@ model Invoice {
   currencyCode     String             @default("TRY")
   subtotal         Float              @default(0)
   vatTotal         Float              @default(0)
+  withholdingTotal Float              @default(0)
   grandTotal       Float              @default(0)
   paidTotal        Float              @default(0)
   note             String?
@@ -631,6 +701,8 @@ model InvoiceItem {
   quantity    Float    @default(1)
   unitPrice   Float    @default(0)
   vatRate     Float    @default(20)
+  withholdingRate Float @default(0)
+  withholdingAmount Float @default(0)
   lineTotal   Float    @default(0)
   invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   product     Product? @relation(fields: [productId], references: [id])
@@ -798,6 +870,7 @@ model EInvoiceSettings {
   servicePassword   String?
   serviceCompanyCode String?
   serviceEndpoint   String?
+  serviceMeslekMensubuKey String?
   serviceCreditCount Int?
   serviceCreditUpdatedAt DateTime?
   createdAt         DateTime          @default(now())
@@ -837,3 +910,4 @@ model DocumentTemplate {
 
   @@unique([tenantId, kind, slug])
 }
+

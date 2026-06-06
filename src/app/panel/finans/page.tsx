@@ -48,22 +48,22 @@ export default async function FinancePage() {
               <StatRow label="Net hareket" value={formatCurrency(totalIn - totalOut)} />
             </div>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <Link href="/panel/cari" className="rounded-[10px] border border-[var(--line)] bg-[var(--panel-soft)] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-white">Cari bağlantıları gör</Link>
-              <Link href="/panel/ayarlar/hizli-bilisim" className="rounded-[10px] border border-[var(--line)] bg-[var(--panel-soft)] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-white">Servis ayarları</Link>
+              <Link href="/panel/cari" className="border border-[var(--line)] bg-[var(--panel-soft)] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-white">Cari bağlantıları gör</Link>
+              <Link href="/panel/ayarlar/hizli-bilisim" className="border border-[var(--line)] bg-[var(--panel-soft)] px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-white">Servis ayarları</Link>
             </div>
           </SectionCard>
 
           <section className="grid gap-6 xl:grid-cols-2">
             <SectionCard eyebrow="Kasa İşlemleri" title="Kasa hesabı oluştur">
               <div className="grid gap-3">
-                <Link href="/panel/finans/kasa/yeni" className="rounded-[10px] border border-[var(--line)] bg-white px-4 py-4 text-sm font-bold text-slate-700 hover:bg-slate-50">Yeni kasa hesabı</Link>
-                <Link href="/panel/finans/tahsilat-odeme/yeni" className="rounded-[10px] border border-[var(--line)] bg-[var(--panel-soft)] px-4 py-4 text-sm font-semibold text-slate-700 hover:bg-white">Tahsilat / ödeme işle</Link>
+                <Link href="/panel/finans/kasa/yeni" className="border border-[var(--line)] bg-white px-4 py-4 text-sm font-bold text-slate-700 hover:bg-slate-50">Yeni kasa hesabı</Link>
+                <Link href="/panel/finans/tahsilat-odeme/yeni" className="border border-[var(--line)] bg-[var(--panel-soft)] px-4 py-4 text-sm font-semibold text-slate-700 hover:bg-white">Tahsilat / ödeme işle</Link>
               </div>
             </SectionCard>
             <SectionCard eyebrow="Banka İşlemleri" title="Banka hesabı oluştur">
               <div className="grid gap-3">
-                <Link href="/panel/finans/banka/yeni" className="rounded-[10px] border border-[var(--line)] bg-white px-4 py-4 text-sm font-bold text-slate-700 hover:bg-slate-50">Yeni banka hesabı</Link>
-                <Link href="/panel/finans/gider/yeni" className="rounded-[10px] border border-[var(--line)] bg-[var(--panel-soft)] px-4 py-4 text-sm font-semibold text-slate-700 hover:bg-white">Yeni gider işle</Link>
+                <Link href="/panel/finans/banka/yeni" className="border border-[var(--line)] bg-white px-4 py-4 text-sm font-bold text-slate-700 hover:bg-slate-50">Yeni banka hesabı</Link>
+                <Link href="/panel/finans/gider/yeni" className="border border-[var(--line)] bg-[var(--panel-soft)] px-4 py-4 text-sm font-semibold text-slate-700 hover:bg-white">Yeni gider işle</Link>
               </div>
             </SectionCard>
           </section>
@@ -72,14 +72,14 @@ export default async function FinancePage() {
         <section className="grid gap-6 xl:grid-cols-2">
           <SectionCard eyebrow="Finans Aksiyonları" title="Ayrı sayfa akışı">
             <div className="grid gap-3 sm:grid-cols-2">
-              <Link href="/panel/finans/tahsilat-odeme/yeni" className="rounded-[10px] border border-[var(--line)] bg-white px-4 py-4 text-sm font-bold text-slate-700 hover:bg-slate-50">Yeni tahsilat / ödeme</Link>
-              <Link href="/panel/finans/gider/yeni" className="rounded-[10px] border border-[var(--line)] bg-white px-4 py-4 text-sm font-bold text-slate-700 hover:bg-slate-50">Yeni gider kaydı</Link>
+              <Link href="/panel/finans/tahsilat-odeme/yeni" className="border border-[var(--line)] bg-white px-4 py-4 text-sm font-bold text-slate-700 hover:bg-slate-50">Yeni tahsilat / ödeme</Link>
+              <Link href="/panel/finans/gider/yeni" className="border border-[var(--line)] bg-white px-4 py-4 text-sm font-bold text-slate-700 hover:bg-slate-50">Yeni gider kaydı</Link>
             </div>
           </SectionCard>
           <SectionCard eyebrow="İlgili Modüller" title="Bağlantılı ekranlar">
             <div className="grid gap-3 sm:grid-cols-2">
-              <Link href="/panel/faturalar" className="rounded-[10px] border border-[var(--line)] bg-[var(--panel-soft)] px-4 py-4 text-sm font-semibold text-slate-700 hover:bg-white">Faturalar</Link>
-              <Link href="/panel/cari" className="rounded-[10px] border border-[var(--line)] bg-[var(--panel-soft)] px-4 py-4 text-sm font-semibold text-slate-700 hover:bg-white">Cari hesaplar</Link>
+              <Link href="/panel/faturalar" className="border border-[var(--line)] bg-[var(--panel-soft)] px-4 py-4 text-sm font-semibold text-slate-700 hover:bg-white">Faturalar</Link>
+              <Link href="/panel/cari" className="border border-[var(--line)] bg-[var(--panel-soft)] px-4 py-4 text-sm font-semibold text-slate-700 hover:bg-white">Cari hesaplar</Link>
             </div>
           </SectionCard>
         </section>
@@ -88,14 +88,14 @@ export default async function FinancePage() {
           <SectionCard eyebrow="Kasalar ve Bankalar" title="Hesap listesi">
             <div className="space-y-3">
               {cashAccounts.map((item) => (
-                <div key={item.id} className="rounded-[12px] border border-[var(--line)] bg-[var(--panel-soft)] px-4 py-4">
+                <div key={item.id} className="border border-[var(--line)] bg-[var(--panel-soft)] px-4 py-4">
                   <p className="font-extrabold text-slate-900">{item.name}</p>
                   <p className="mt-2 text-sm text-slate-500">Kasa bakiyesi</p>
                   <p className="mt-1 text-xl font-extrabold text-emerald-700">{formatCurrency(Number(item.balance))}</p>
                 </div>
               ))}
               {bankAccounts.map((item) => (
-                <div key={item.id} className="rounded-[12px] border border-[var(--line)] bg-[var(--panel-soft)] px-4 py-4">
+                <div key={item.id} className="border border-[var(--line)] bg-[var(--panel-soft)] px-4 py-4">
                   <p className="font-extrabold text-slate-900">{item.bankName}</p>
                   <p className="mt-1 text-xs text-slate-500">{item.iban}</p>
                   <p className="mt-2 text-xl font-extrabold text-sky-700">{formatCurrency(Number(item.balance))}</p>
@@ -107,7 +107,7 @@ export default async function FinancePage() {
           <SectionCard eyebrow="Hareket Akışı" title="Tahsilat ve ödeme kayıtları">
             <div className="space-y-3">
               {payments.map((payment) => (
-                <div key={payment.id} className="rounded-[12px] border border-[var(--line)] bg-[var(--panel-soft)] px-4 py-4">
+                <div key={payment.id} className="border border-[var(--line)] bg-[var(--panel-soft)] px-4 py-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-extrabold text-slate-900">{payment.description ?? "Finans hareketi"}</p>

@@ -45,11 +45,14 @@ export default function HomePage() {
           </div>
 
           <div className="flex items-center gap-3">
+            <Link href="/kayit" className="inline-flex h-11 items-center rounded-[10px] border border-[var(--line)] bg-white px-5 text-sm font-extrabold text-slate-700 hover:bg-slate-50">
+              Ücretsiz Dene
+            </Link>
             <Link href="/giris" className="inline-flex h-11 items-center rounded-[10px] bg-[var(--brand)] px-5 text-sm font-extrabold text-white hover:bg-[var(--brand-strong)]">
               Giriş Yap
             </Link>
-            <Link href="/kurucu" className="inline-flex h-11 items-center rounded-[10px] border border-[var(--line)] bg-white px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-              Kurucu Paneli
+            <Link href="/giris?hesap=founder" className="inline-flex h-11 items-center rounded-[10px] border border-[var(--line)] bg-white px-5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+              Kurucu Demo
             </Link>
           </div>
         </div>
@@ -68,6 +71,9 @@ export default function HomePage() {
                   Bey360; Logo İşbaşı benzeri bir çalışma düzenini, çok kullanıcılı tenant altyapısını ve modern e-Belge süreçlerini tek ürün çatısında toplar. Kurucu ekip tenant açar, firmalar kendi operasyonunu bağımsız yönetir.
                 </p>
                 <div className="mt-7 flex flex-wrap gap-3">
+                  <Link href="/kayit" className="inline-flex h-11 items-center rounded-[10px] border border-[var(--line)] bg-white px-5 text-sm font-extrabold text-slate-700 hover:bg-slate-50">
+                    Ücretsiz hesap aç
+                  </Link>
                   <Link href="/giris" className="inline-flex h-11 items-center rounded-[10px] bg-[var(--brand)] px-5 text-sm font-extrabold text-white hover:bg-[var(--brand-strong)]">
                     Demo panele geç
                   </Link>

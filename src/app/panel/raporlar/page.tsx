@@ -1,58 +1,57 @@
 import Link from "next/link";
 import { AppShell } from "@/components/ui/app-shell";
 import { SectionCard, StatRow, StatusPill, SummaryCard } from "@/components/ui/module-blocks";
+import { TrendBarChart } from "@/components/ui/dashboard-charts";
 import { getTenantContext } from "@/lib/access";
-import { db } from "@/lib/db";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/format";
 import { tenantNavGroups } from "@/lib/navigation";
+import { getWebReportsSnapshot } from "@/lib/reporting/live-reports";
 
-export default async function ReportsPage() {
+function buildPeriodHref(period: string) {
+  return `/panel/raporlar?period=${period}`;
+}
+
+export default async function ReportsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { membership, tenant, user } = await getTenantContext();
+  const params = (await searchParams) ?? {};
+  const periodParam = typeof params.period === "string" && ["3m", "6m", "12m"].includes(params.period) ? (params.period as "3m" | "6m" | "12m") : "6m";
+  const partyQuery = typeof params.party === "string" ? params.party.trim().toLowerCase() : "";
+  const productQuery = typeof params.product === "string" ? params.product.trim().toLowerCase() : "";
+  const statusQuery = typeof params.status === "string" ? params.status.trim().toUpperCase() : "";
+  const exportParams = new URLSearchParams();
+  exportParams.set("period", periodParam);
+  if (partyQuery) exportParams.set("party", partyQuery);
+  if (productQuery) exportParams.set("product", productQuery);
+  if (statusQuery) exportParams.set("status", statusQuery);
 
-  const [invoices, products, quotes, orders, payments] = await Promise.all([
-    db.invoice.findMany({
-      where: { tenantId: tenant.id },
-      include: { items: { include: { product: true } }, customer: true, supplier: true },
-      orderBy: { issueDate: "desc" },
-    }),
-    db.product.findMany({ where: { tenantId: tenant.id }, orderBy: { stockQty: "asc" }, take: 8 }),
-    db.quote.findMany({ where: { tenantId: tenant.id }, include: { customer: true }, orderBy: { createdAt: "desc" } }),
-    db.salesOrder.findMany({ where: { tenantId: tenant.id }, include: { customer: true }, orderBy: { createdAt: "desc" } }),
-    db.payment.findMany({ where: { tenantId: tenant.id }, orderBy: { transactionAt: "desc" } }),
-  ]);
-
-  const salesInvoices = invoices.filter((invoice) => invoice.direction === "SALES");
-  const purchaseInvoices = invoices.filter((invoice) => invoice.direction === "PURCHASE");
-  const totalSales = salesInvoices.reduce((sum, invoice) => sum + Number(invoice.grandTotal), 0);
-  const totalPurchases = purchaseInvoices.reduce((sum, invoice) => sum + Number(invoice.grandTotal), 0);
-  const totalCollections = payments.filter((payment) => payment.direction === "IN").reduce((sum, payment) => sum + Number(payment.amount), 0);
-  const totalPayments = payments.filter((payment) => payment.direction === "OUT").reduce((sum, payment) => sum + Number(payment.amount), 0);
-  const receivable = salesInvoices.reduce((sum, invoice) => sum + Math.max(Number(invoice.grandTotal) - Number(invoice.paidTotal), 0), 0);
-  const payable = purchaseInvoices.reduce((sum, invoice) => sum + Math.max(Number(invoice.grandTotal) - Number(invoice.paidTotal), 0), 0);
-  const quoteVolume = quotes.reduce((sum, quote) => sum + Number(quote.grandTotal), 0);
-  const orderVolume = orders.reduce((sum, order) => sum + Number(order.grandTotal), 0);
-
-  const productStats = new Map<string, { name: string; qty: number; revenue: number }>();
-  for (const invoice of salesInvoices) {
-    for (const item of invoice.items) {
-      const key = item.productId ?? item.description;
-      const current = productStats.get(key) ?? { name: item.product?.name ?? item.description, qty: 0, revenue: 0 };
-      current.qty += Number(item.quantity);
-      current.revenue += Number(item.lineTotal);
-      productStats.set(key, current);
-    }
-  }
-
-  const topProducts = [...productStats.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 6);
-  const atRiskProducts = products.filter((product) => Number(product.stockQty) <= 10);
-  const orderStatusRows = [
-    { label: "Taslak sipariş", value: orders.filter((order) => order.status === "DRAFT").length },
-    { label: "Onaylı sipariş", value: orders.filter((order) => order.status === "APPROVED").length },
-    { label: "Faturalanmış sipariş", value: orders.filter((order) => order.status === "INVOICED").length },
-    { label: "Açık teklif", value: quotes.filter((quote) => ["DRAFT", "SENT"].includes(quote.status)).length },
-  ];
-
-  const recentDocuments = [...invoices].sort((a, b) => b.issueDate.getTime() - a.issueDate.getTime()).slice(0, 8);
+  const {
+    salesInvoices,
+    purchaseInvoices,
+    filteredProducts,
+    totalSales,
+    totalPurchases,
+    totalCollections,
+    totalPayments,
+    receivable,
+    payable,
+    quoteVolume,
+    orderVolume,
+    chartData,
+    topProducts,
+    atRiskProducts,
+    orderStatusRows,
+    recentDocuments,
+  } = await getWebReportsSnapshot(tenant.id, {
+    period: periodParam,
+    partyQuery,
+    productQuery,
+    statusQuery,
+  });
+  const periodLabel = periodParam === "3m" ? "Son 3 Ay" : periodParam === "12m" ? "Son 12 Ay" : "Son 6 Ay";
 
   return (
     <AppShell
@@ -63,12 +62,69 @@ export default async function ReportsPage() {
       userName={user.fullName}
       userTitle={`${membership.role} · ${tenant.planName}`}
       topAction={
-        <Link href="/panel/faturalar" className="inline-flex h-10 items-center rounded-[10px] bg-[var(--brand)] px-4 text-sm font-extrabold text-white shadow-[0_12px_24px_rgba(213,32,42,0.18)] hover:bg-[var(--brand-strong)]">
-          Belgelere Git
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link href={`/panel/raporlar/yazdir?${exportParams.toString()}`} className="inline-flex h-10 items-center border border-[var(--line)] bg-white px-4 text-sm font-bold text-slate-700 hover:bg-slate-50">
+            PDF / YazdÄ±r
+          </Link>
+          <Link href={`/api/panel/reports/export?${exportParams.toString()}`} className="inline-flex h-10 items-center border border-[var(--line)] bg-white px-4 text-sm font-bold text-slate-700 hover:bg-slate-50">
+            Excel
+          </Link>
+          <Link href="/panel/faturalar" className="inline-flex h-10 items-center rounded-[10px] bg-[var(--brand)] px-4 text-sm font-extrabold text-white shadow-[0_12px_24px_rgba(213,32,42,0.18)] hover:bg-[var(--brand-strong)]">
+            Belgelere Git
+          </Link>
+        </div>
       }
     >
       <div className="space-y-6">
+        <SectionCard
+          eyebrow="Filtre"
+          title="Raporu daralt"
+          action={<Link href="/panel/raporlar" className="text-sm font-bold text-[var(--brand)]">Temizle</Link>}
+        >
+          <form className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_220px_auto]">
+            <input name="party" defaultValue={partyQuery} placeholder="Müşteri, tedarikçi veya vergi no" className="h-11 border border-[var(--line)] bg-white px-3 text-sm font-medium text-slate-700 outline-none" />
+            <input name="product" defaultValue={productQuery} placeholder="Ürün, barkod, belge no veya açıklama" className="h-11 border border-[var(--line)] bg-white px-3 text-sm font-medium text-slate-700 outline-none" />
+            <input name="status" defaultValue={statusQuery} placeholder="Durum: ISSUED, PAID, DRAFT..." className="h-11 border border-[var(--line)] bg-white px-3 text-sm font-medium text-slate-700 outline-none" />
+            <input type="hidden" name="period" value={periodParam} />
+            <button className="inline-flex h-11 items-center justify-center border border-[var(--brand)] bg-[var(--brand)] px-4 text-sm font-bold text-white hover:bg-[var(--brand-strong)]">
+              Filtrele
+            </button>
+          </form>
+        </SectionCard>
+
+        <SectionCard
+          eyebrow="Canlı Rapor Merkezi"
+          title="Satış ve alış eğilimi"
+          action={
+            <div className="flex flex-wrap gap-2">
+              {[
+                { key: "3m", label: "3 Ay" },
+                { key: "6m", label: "6 Ay" },
+                { key: "12m", label: "12 Ay" },
+              ].map((item) => (
+                <Link
+                  key={item.key}
+                  href={buildPeriodHref(item.key)}
+                  className={`border px-3 py-2 text-xs font-extrabold ${
+                    periodParam === item.key
+                      ? "border-slate-900 bg-slate-900 text-white"
+                      : "border-[var(--line)] bg-[var(--panel-soft)] text-slate-700"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          }
+        >
+          <div className="mb-4 grid gap-4 md:grid-cols-3">
+            <StatRow label="Dönem" value={periodLabel} />
+            <StatRow label="Satış hacmi" value={formatCurrency(totalSales)} />
+            <StatRow label="Alış hacmi" value={formatCurrency(totalPurchases)} />
+          </div>
+          <TrendBarChart data={chartData} primaryLabel="Satış" secondaryLabel="Alış" primaryColor="#315c7c" secondaryColor="#0f172a" />
+        </SectionCard>
+
         <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           <SummaryCard title="Satış hacmi" value={formatCurrency(totalSales)} detail={`${formatNumber(salesInvoices.length)} satış faturası`} accent="border-l-4 border-l-sky-500 border-[var(--line)]" />
           <SummaryCard title="Tahsilat oranı" value={`${Math.round((totalCollections / Math.max(totalSales, 1)) * 100)}%`} detail={`${formatCurrency(totalCollections)} tahsilat`} accent="border-l-4 border-l-emerald-500 border-[var(--line)]" />

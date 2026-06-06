@@ -27,6 +27,9 @@ const initialForm = {
   openingBalance: "0",
   phoneCountryCode: "+90",
   openingBalanceDate: new Date().toISOString().slice(0, 10),
+  eInvoiceRegistered: false,
+  eInvoiceAlias: "",
+  eInvoiceCheckNote: "",
 };
 
 export function CustomerForm() {
@@ -35,6 +38,10 @@ export function CustomerForm() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [turmobKey, setTurmobKey] = useState("");
+  const [turmobMessage, setTurmobMessage] = useState<string | null>(null);
+  const [turmobError, setTurmobError] = useState<string | null>(null);
+  const [turmobBusy, setTurmobBusy] = useState(false);
 
   const displayName = useMemo(() => {
     if (form.type === "2") {
@@ -69,6 +76,67 @@ export function CustomerForm() {
     setForm(initialForm);
     router.refresh();
     setBusy(false);
+  }
+
+  function getString(value: unknown) {
+    return typeof value === "string" ? value.trim() : "";
+  }
+
+  async function handleTurmobFill() {
+    setTurmobMessage(null);
+    setTurmobError(null);
+    setTurmobBusy(true);
+    try {
+      if (!form.taxNumber.trim()) {
+        throw new Error("VKN / TCKN girilmelidir.");
+      }
+
+      const response = await fetch("/api/panel/settings/hizli-bilisim/mukellef", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vknTckn: form.taxNumber, meslekMensubuKey: turmobKey || undefined }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(result?.error ?? "TÜRMOB sorgulaması başarısız oldu.");
+      }
+
+      const mukellef = (result?.data?.mukellef ?? {}) as Record<string, unknown>;
+      const durum = (mukellef.durum ?? {}) as Record<string, unknown>;
+      const durumSonuc = typeof durum.sonuc === "boolean" ? durum.sonuc : String(durum.sonuc ?? "").toLowerCase() === "true";
+      const durumAciklama = getString(durum.durumKodAciklamasi) || getString(durum.hataDetayBilgisi);
+      const adresList = Array.isArray(mukellef.adresBilgileri) ? (mukellef.adresBilgileri as Record<string, unknown>[]) : [];
+      const adres = adresList[0] ?? {};
+      const city = getString(adres.ilAdi);
+      const district = getString(adres.ilceAdi);
+      const street = [adres.mahalleSemt, adres.caddeSokak, adres.disKapiNo, adres.icKapiNo].map(getString).filter(Boolean).join(" ");
+
+      const isIndividual = Boolean(getString(mukellef.tckn));
+      const title = getString(mukellef.unvan) || getString(mukellef.kimlikUnvani);
+      const firstName = getString(mukellef.ad);
+      const lastName = getString(mukellef.soyad);
+      const taxOffice = getString(mukellef.vergiDairesiAdi);
+
+      setForm((current) => ({
+        ...current,
+        type: isIndividual ? "1" : "2",
+        title: isIndividual ? current.title : title || current.title,
+        firstName: isIndividual ? firstName || current.firstName : current.firstName,
+        lastName: isIndividual ? lastName || current.lastName : current.lastName,
+        taxOffice: taxOffice || current.taxOffice,
+        city: city || current.city,
+        district: district || current.district,
+        address: street || current.address,
+        eInvoiceRegistered: durumSonuc ? true : current.eInvoiceRegistered,
+        eInvoiceCheckNote: durumSonuc ? `TÜRMOB doğrulama: ${durumAciklama || "Aktif"}` : current.eInvoiceCheckNote,
+      }));
+
+      setTurmobMessage("TÜRMOB bilgileri forma aktarıldı.");
+    } catch (err) {
+      setTurmobError(err instanceof Error ? err.message : "TÜRMOB sorgulaması sırasında hata oluştu.");
+    } finally {
+      setTurmobBusy(false);
+    }
   }
 
   return (
@@ -145,6 +213,31 @@ export function CustomerForm() {
               <span className="text-sm font-semibold text-slate-600">Vergi No / T.C. Kimlik No</span>
               <input value={form.taxNumber} onChange={(event) => setForm((current) => ({ ...current, taxNumber: event.target.value }))} placeholder="1234567890" />
             </label>
+
+            <div className="md:col-span-2 rounded-[14px] border border-[var(--line)] bg-[var(--panel-soft)] px-4 py-4">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">TÜRMOB</p>
+              <p className="mt-1 text-sm font-semibold text-slate-700">Mükellef bilgisiyle otomatik doldur</p>
+              <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+                <label className="space-y-2">
+                  <span className="text-xs font-semibold text-slate-600">Meslek Mensubu Key (opsiyonel)</span>
+                  <input
+                    value={turmobKey}
+                    onChange={(event) => setTurmobKey(event.target.value)}
+                    placeholder="Ayarlar’da kayıtlıysa boş bırakılabilir"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={handleTurmobFill}
+                  disabled={turmobBusy}
+                  className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-xs font-black text-slate-700 hover:bg-slate-100 disabled:opacity-60"
+                >
+                  {turmobBusy ? "Sorgulanıyor..." : "TÜRMOB’dan Doldur"}
+                </button>
+              </div>
+              {turmobMessage ? <p className="mt-2 text-xs font-semibold text-emerald-600">{turmobMessage}</p> : null}
+              {turmobError ? <p className="mt-2 text-xs font-semibold text-rose-600">{turmobError}</p> : null}
+            </div>
           </div>
         </section>
 

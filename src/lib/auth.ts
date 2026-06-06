@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { verifyPassword as comparePassword, hashPassword as createPasswordHash } from "@/lib/password";
 import { LOCK_COOKIE, SESSION_COOKIE } from "@/lib/auth-config";
 
-type SessionPayload = {
+export type SessionPayload = {
   userId: string;
   tenantId?: string | null;
   membershipRole?: string | null;
@@ -30,6 +30,15 @@ export async function createSessionToken(payload: SessionPayload) {
     .setIssuedAt()
     .setExpirationTime("7d")
     .sign(getSecret());
+}
+
+export async function verifySessionToken(token: string) {
+  try {
+    const verified = await jwtVerify(token, getSecret());
+    return verified.payload as SessionPayload;
+  } catch {
+    return null;
+  }
 }
 
 export async function setSessionCookie(token: string) {
@@ -78,8 +87,7 @@ export async function getSession() {
   }
 
   try {
-    const verified = await jwtVerify(token, getSecret());
-    return verified.payload as SessionPayload;
+    return await verifySessionToken(token);
   } catch {
     return null;
   }

@@ -46,7 +46,10 @@ export async function proxy(request: NextRequest) {
   }
 
   if (pathname.startsWith("/kurucu") && session.globalRole !== "FOUNDER") {
-    return NextResponse.redirect(new URL("/panel", request.url));
+    const loginUrl = new URL("/giris", request.url);
+    loginUrl.searchParams.set("hesap", "founder");
+    loginUrl.searchParams.set("mesaj", "Kurucu paneli için kurucu hesabıyla giriş yapmalısın.");
+    return NextResponse.redirect(loginUrl);
   }
 
   if (isLocked) {

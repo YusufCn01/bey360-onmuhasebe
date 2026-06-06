@@ -52,13 +52,38 @@ export async function POST(_: Request, { params }: { params: Promise<{ documentI
       const taxNumber = workingDocument.invoice.customer?.taxNumber?.trim();
 
       if (taxNumber && taxNumber.length >= 10) {
-        const lookup = await getGibUserList(settings, taxNumber, "PK", 1);
-        const matchedAlias = lookup.success ? lookup.users[0]?.Alias ?? "" : "";
-        const taxpayer = Boolean(matchedAlias);
-        const notTaxpayer = isNotEInvoiceTaxpayer(lookup.note);
+        let matchedAlias = "";
+        let taxpayer = false;
+        let aliasNote: string | null | undefined = null;
 
-        if (!lookup.success && !notTaxpayer) {
-          return NextResponse.json({ success: false, error: lookup.note || "Alıcı e-Fatura durumu doğrulanamadı." }, { status: 502 });
+        const manualAlias = workingDocument.invoice.customer?.eInvoiceAlias?.trim();
+        if (workingDocument.invoice.customer?.eInvoiceRegistered && manualAlias) {
+          matchedAlias = manualAlias;
+          taxpayer = true;
+          aliasNote = "Manuel doğrulama ile e-Fatura olarak işaretlendi.";
+        } else {
+          const lookup = await getGibUserList(settings, taxNumber, "PK", 1);
+          matchedAlias = lookup.success ? lookup.users[0]?.Alias ?? "" : "";
+          taxpayer = Boolean(matchedAlias);
+          aliasNote = lookup.note;
+
+          if (!taxpayer) {
+            const gbLookup = await getGibUserList(settings, taxNumber, "GB", 1);
+            const gbAlias = gbLookup.success ? gbLookup.users[0]?.Alias ?? "" : "";
+            if (gbAlias) {
+              matchedAlias = gbAlias;
+              taxpayer = true;
+              aliasNote = `GB alias kullanıldı: ${gbAlias}`;
+            } else if (!gbLookup.success && gbLookup.note) {
+              aliasNote = gbLookup.note;
+            }
+          }
+        }
+
+        const notTaxpayer = isNotEInvoiceTaxpayer(aliasNote ?? "");
+
+        if (!taxpayer && !notTaxpayer && !aliasNote) {
+          return NextResponse.json({ success: false, error: aliasNote || "Alıcı e-Fatura durumu doğrulanamadı." }, { status: 502 });
         }
 
         if (workingDocument.invoice.customerId) {
@@ -67,7 +92,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ documentI
             data: {
               eInvoiceRegistered: taxpayer,
               eInvoiceAlias: taxpayer ? matchedAlias : null,
-              eInvoiceCheckNote: taxpayer ? `e-Fatura mükellefi · PK alias: ${matchedAlias}` : lookup.note,
+              eInvoiceCheckNote: taxpayer ? `e-Fatura mükellefi · alias: ${matchedAlias}` : aliasNote,
               eInvoiceCheckedAt: new Date(),
             },
           });

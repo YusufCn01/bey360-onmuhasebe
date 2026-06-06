@@ -1,14 +1,19 @@
-﻿import Link from "next/link";
+import Image from "next/image";
+import Link from "next/link";
 import type { ReactNode } from "react";
-import { EInvoiceProvider, ReminderStatus } from "@prisma/client";
-import { getSession } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { getCurrentUser, getSession } from "@/lib/auth";
 import { LockScreenButton } from "@/components/ui/lock-screen-button";
-import { MobileCommandPalette } from "@/components/ui/mobile-command-palette";
-import { MobileBottomNav } from "@/components/ui/mobile-bottom-nav";
 import { LogoutButton } from "@/components/ui/logout-button";
+import { MobileBottomNav } from "@/components/ui/mobile-bottom-nav";
+import { MobileCommandPalette } from "@/components/ui/mobile-command-palette";
 import { MobileNavDrawer } from "@/components/ui/mobile-nav-drawer";
 import { NotificationCenter } from "@/components/ui/notification-center";
+import { UserAccountMenu } from "@/components/ui/user-account-menu";
+import {
+  formatCreditCount,
+  getShellNotificationSummary,
+  getShellSidebarProviderSummary,
+} from "@/lib/shell-summary";
 
 export type ShellNavItem = {
   href?: string;
@@ -32,30 +37,6 @@ function isItemActive(currentPath: string, item: ShellNavItem) {
   }
 
   return item.children?.some((child) => currentPath === child.href || currentPath.startsWith(child.href)) ?? false;
-}
-
-function formatDateTime(value?: Date | null) {
-  if (!value) {
-    return "-";
-  }
-
-  return new Intl.DateTimeFormat("tr-TR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(value);
-}
-
-function formatCreditCount(value?: number | null) {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return "-";
-  }
-
-  return new Intl.NumberFormat("tr-TR", {
-    maximumFractionDigits: 0,
-  }).format(value);
 }
 
 function renderNavIcon(icon?: string) {
@@ -180,44 +161,7 @@ async function getSidebarProviderSummary(currentPath: string) {
   }
 
   const session = await getSession();
-  if (!session?.tenantId) {
-    return null;
-  }
-
-  const settings = await db.eInvoiceSettings.findUnique({
-    where: { tenantId: session.tenantId },
-    select: {
-      provider: true,
-      testMode: true,
-      gibAlias: true,
-      serviceCreditCount: true,
-      serviceCreditUpdatedAt: true,
-      serviceEndpoint: true,
-    },
-  });
-
-  if (!settings) {
-    return {
-      providerLabel: "Bağlı değil",
-      environmentLabel: "Tanımsız",
-      creditCount: null,
-      senderAlias: null,
-      updatedAtLabel: "-",
-    };
-  }
-
-  return {
-    providerLabel:
-      settings.provider === EInvoiceProvider.HIZLI_BILISIM
-        ? "Hızlı Bilişim"
-        : settings.provider === EInvoiceProvider.GIB
-          ? "GİB"
-          : "Bağlı değil",
-    environmentLabel: settings.testMode ? "Test" : "Canlı",
-    creditCount: settings.serviceCreditCount,
-    senderAlias: settings.gibAlias || settings.serviceEndpoint || null,
-    updatedAtLabel: formatDateTime(settings.serviceCreditUpdatedAt),
-  };
+  return getShellSidebarProviderSummary(session?.tenantId);
 }
 
 async function getNotificationSummary(currentPath: string) {
@@ -226,140 +170,112 @@ async function getNotificationSummary(currentPath: string) {
   }
 
   const session = await getSession();
-  if (!session?.tenantId) {
+  return getShellNotificationSummary(session?.tenantId);
+}
+
+async function getCurrentShellUser(currentPath: string) {
+  if (!currentPath.startsWith("/panel") && !currentPath.startsWith("/kurucu")) {
     return null;
   }
 
-  const now = new Date();
-  const [reminders, unreadCount, openCount, overdueCount] = await Promise.all([
-    db.reminder.findMany({
-      where: { tenantId: session.tenantId },
-      orderBy: [{ isRead: "asc" }, { dueAt: "asc" }, { createdAt: "desc" }],
-      take: 12,
-      select: {
-        id: true,
-        title: true,
-        message: true,
-        dueAt: true,
-        status: true,
-        channel: true,
-        isRead: true,
-        readAt: true,
-        relatedType: true,
-        relatedId: true,
-        createdAt: true,
-      },
-    }),
-    db.reminder.count({
-      where: {
-        tenantId: session.tenantId,
-        status: ReminderStatus.OPEN,
-        isRead: false,
-      },
-    }),
-    db.reminder.count({
-      where: {
-        tenantId: session.tenantId,
-        status: ReminderStatus.OPEN,
-      },
-    }),
-    db.reminder.count({
-      where: {
-        tenantId: session.tenantId,
-        status: ReminderStatus.OPEN,
-        dueAt: { lt: now },
-      },
-    }),
-  ]);
+  const user = await getCurrentUser();
+  if (!user) {
+    return null;
+  }
 
   return {
-    unreadCount,
-    openCount,
-    overdueCount,
-    reminders: reminders.map((item) => ({
-      ...item,
-      dueAt: item.dueAt.toISOString(),
-      readAt: item.readAt?.toISOString() ?? null,
-      createdAt: item.createdAt.toISOString(),
-    })),
+    email: user.email,
+    avatarUrl: user.avatarUrl,
   };
 }
 
 function DesktopSidebar({
   currentPath,
   navGroups,
-  userName,
-  userTitle,
-  providerLabel,
   environmentLabel,
-  creditLabel,
-  senderAlias,
-  updatedAtLabel,
 }: {
   currentPath: string;
   navGroups: ShellNavGroup[];
-  userName: string;
-  userTitle: string;
-  providerLabel: string;
   environmentLabel: string;
-  creditLabel: string;
-  senderAlias?: string | null;
-  updatedAtLabel: string;
 }) {
   return (
-    <aside className="hidden w-[308px] shrink-0 border-r border-[var(--sidebar-border)] bg-[var(--sidebar)] text-white lg:flex lg:flex-col">
-      <div className="border-b border-[var(--sidebar-border)] bg-gradient-to-b from-[var(--brand)] to-[#a6101c] px-6 py-5">
-        <Link href="/panel" className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-xl font-black text-[var(--brand)]">B</div>
-          <div>
-            <p className="font-display text-[1.95rem] font-extrabold leading-none tracking-tight">Bey360</p>
-            <p className="mt-1 text-[11px] uppercase tracking-[0.28em] text-white/80">İş Yönetim Platformu</p>
+    <aside className="hidden w-[318px] shrink-0 border-r border-[#d7dee6] bg-[#f7f9fb] text-slate-900 lg:flex lg:flex-col">
+      <div className="border-b border-[#d7dee6] p-5">
+        <Link href="/panel" className="block overflow-hidden border border-[#d7dee6] bg-white">
+          <div className="border-b border-[#eef2f5] px-4 py-4">
+            <div className="flex items-center gap-4">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center border border-[#e4eaf0] bg-white">
+                <Image
+                  src="/brand/bey360-logo-transparent.png"
+                  alt="Bey360"
+                  width={56}
+                  height={56}
+                  className="h-14 w-14 object-contain"
+                  priority
+                />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-[1.02rem] font-extrabold tracking-[0.01em] text-slate-950">Bey360</p>
+                <p className="mt-1 text-[11px] uppercase tracking-[0.16em] text-slate-500">Ön Muhasebe Yönetimi</p>
+                <p className="mt-2 text-xs leading-5 text-slate-500">Finans, stok ve e-dönüşüm süreçlerini tek merkezden yönetin.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-3 bg-[#fbfcfd] px-4 py-3 text-[11px]">
+            <div>
+              <p className="font-black uppercase tracking-[0.14em] text-slate-400">Çalışma Modu</p>
+              <p className="mt-1 font-semibold text-slate-700">Kurumsal panel</p>
+            </div>
+            <span className="border border-[#d7dee6] bg-white px-2.5 py-1 font-black uppercase tracking-[0.14em] text-slate-700">
+              {environmentLabel}
+            </span>
           </div>
         </Link>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-5">
-        <div className="mb-4 px-2">
-          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--sidebar-muted)]">Ana Menü</p>
-        </div>
-
-        {navGroups.map((group) => (
-          <div key={group.title || "menu"} className="mb-5">
-            {group.title ? <p className="mb-2 px-3 text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--sidebar-muted)]">{group.title}</p> : null}
-
-            <div className="space-y-2.5">
+      <div className="flex-1 overflow-y-auto px-5 py-5">
+        <nav className="space-y-6">
+          {navGroups.map((group) => (
+            <div key={group.title} className="space-y-1.5">
+              <div className="px-3 pb-1">
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">{group.title}</p>
+              </div>
               {group.items.map((item) => {
                 const active = isItemActive(currentPath, item);
                 const iconContent = renderNavIcon(item.icon);
 
                 if (item.children?.length) {
                   return (
-                    <details
-                      key={item.label}
-                      open={active}
-                      className={`rounded-[18px] border ${
-                        active ? "border-white/12 bg-white/10 shadow-[0_12px_26px_rgba(0,0,0,0.16)]" : "border-white/6 bg-white/[0.03]"
-                      }`}
-                    >
-                      <summary className="flex cursor-pointer list-none items-center gap-3 px-3.5 py-3 text-[14px] font-semibold text-white marker:content-none">
-                        <span className={`inline-flex h-9 w-9 items-center justify-center rounded-[12px] ${active ? "bg-white text-[var(--brand)]" : "bg-white/8 text-white/85"}`}>
+                    <details key={item.label} open={active} className="group">
+                      <summary
+                        className={`flex cursor-pointer list-none items-center gap-3 border px-3 py-3 text-[13px] font-semibold marker:content-none ${
+                          active
+                            ? "border-[#cfd8e2] bg-white text-slate-950"
+                            : "border-transparent text-slate-700 hover:border-[#e2e8ef] hover:bg-white"
+                        }`}
+                      >
+                        <span
+                          className={`inline-flex h-9 w-9 items-center justify-center border ${
+                            active ? "border-[#d8e1ea] bg-[#f5f8fb] text-[var(--brand)]" : "border-[#e2e8ef] bg-white text-slate-500"
+                          }`}
+                        >
                           {iconContent}
                         </span>
-                        <span className="leading-5">{item.label}</span>
-                        <span className="ml-auto text-xs text-white/45">{item.badge ?? ">"}</span>
+                        <span className="flex-1">{item.label}</span>
+                        <span className="text-slate-400 transition group-open:rotate-90">{">"}</span>
                       </summary>
-                      <div className="space-y-1.5 px-3 pb-3 pl-[3.6rem]">
+                      <div className="space-y-1 pl-11 pr-2 pt-1">
                         {item.children.map((child) => {
                           const childActive = currentPath === child.href || currentPath.startsWith(child.href);
-
                           return (
                             <Link
                               key={child.href}
                               href={child.href}
-                              className={`flex items-center rounded-[10px] px-3 py-2.5 text-[13px] font-medium transition ${
+                              className={`block border-l px-3 py-2 text-[12px] ${
                                 childActive
-                                  ? "bg-white text-[var(--brand)] shadow-[0_8px_18px_rgba(0,0,0,0.12)]"
-                                  : "text-slate-200 hover:bg-white/8 hover:text-white"
+                                  ? "border-l-[#2c4a63] bg-white text-slate-950 font-bold"
+                                  : "border-l-[#d8e1ea] text-slate-500 hover:border-l-[#9caabc] hover:bg-white hover:text-slate-900"
                               }`}
                             >
                               {child.label}
@@ -375,47 +291,30 @@ function DesktopSidebar({
                   <Link
                     key={item.href}
                     href={item.href ?? "#"}
-                    className={`group flex items-center gap-3 rounded-[18px] border px-3.5 py-3 text-[14px] font-semibold transition ${
-                      active
-                        ? "border-white/12 bg-white/12 text-white shadow-[0_10px_24px_rgba(0,0,0,0.16)]"
-                        : "border-white/6 bg-white/[0.03] text-slate-200 hover:border-white/8 hover:bg-white/7 hover:text-white"
+                    className={`flex items-center gap-3 border-l-2 px-3 py-3 text-[13px] font-semibold transition ${
+                      active ? "border-l-[#2c4a63] bg-white text-slate-950" : "border-l-transparent text-slate-700 hover:bg-white hover:text-slate-950"
                     }`}
                   >
-                    <span className={`inline-flex h-9 w-9 items-center justify-center rounded-[12px] ${active ? "bg-white text-[var(--brand)]" : "bg-white/8 text-white/85"}`}>
+                    <span
+                      className={`inline-flex h-9 w-9 items-center justify-center border ${
+                        active ? "border-[#d8e1ea] bg-[#f5f8fb] text-[var(--brand)]" : "border-[#e2e8ef] bg-white text-slate-500"
+                      }`}
+                    >
                       {iconContent}
                     </span>
-                    <span className="leading-5">{item.label}</span>
-                    {item.badge ? (
-                      <span className="ml-auto rounded-full border border-cyan-200/30 bg-cyan-300/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100">
-                        {item.badge}
-                      </span>
-                    ) : null}
+                    <span className="flex-1">{item.label}</span>
+                    {item.badge ? <span className="border border-[#d8e1ea] bg-[#f5f8fb] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-slate-600">{item.badge}</span> : null}
                   </Link>
                 );
               })}
             </div>
-          </div>
-        ))}
+          ))}
+        </nav>
       </div>
 
-      <div className="space-y-3 border-t border-[var(--sidebar-border)] px-4 py-4">
-        <div className="rounded-[18px] border border-white/10 bg-white/6 px-4 py-4">
-          <p className="text-sm font-extrabold text-white">{userName}</p>
-          <p className="mt-1 text-xs text-slate-300">{userTitle}</p>
-          <div className="mt-3 rounded-[14px] border border-white/8 bg-white/6 px-3 py-3">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/50">{providerLabel}</p>
-              <span className="text-[11px] font-bold text-cyan-100">{environmentLabel}</span>
-            </div>
-            <p className="mt-1 text-sm font-extrabold text-white">Kontör: {creditLabel}</p>
-            {senderAlias ? <p className="mt-1 truncate text-[11px] text-slate-300">{senderAlias}</p> : null}
-            <p className="mt-1 text-[11px] text-slate-400">Son güncelleme: {updatedAtLabel}</p>
-          </div>
-        </div>
-        <div className="space-y-2">
-          <LockScreenButton compact />
-          <LogoutButton compact />
-        </div>
+      <div className="space-y-2 border-t border-[#d7dee6] px-5 py-4">
+        <LockScreenButton compact />
+        <LogoutButton compact />
       </div>
     </aside>
   );
@@ -429,7 +328,9 @@ export async function AppShell({
   children,
   userName,
   userTitle,
+  userEmail,
   topAction,
+  showWorkspaceCard = true,
 }: {
   title: string;
   subtitle: string;
@@ -438,139 +339,151 @@ export async function AppShell({
   children: ReactNode;
   userName: string;
   userTitle: string;
+  userEmail?: string | null;
   topAction?: ReactNode;
+  showWorkspaceCard?: boolean;
 }) {
-  const [sidebarSummary, notificationSummary] = await Promise.all([
+  const [shellUser, sidebarSummary, notificationSummary] = await Promise.all([
+    getCurrentShellUser(currentPath),
     getSidebarProviderSummary(currentPath),
     getNotificationSummary(currentPath),
   ]);
 
-  const creditLabel = formatCreditCount(sidebarSummary?.creditCount);
   const userInitials = userName
     .split(" ")
     .slice(0, 2)
     .map((part) => part[0])
-    .join("");
+    .join("")
+    .toUpperCase();
+
+  const isPanel = currentPath.startsWith("/panel");
+  const environmentLabel = sidebarSummary?.environmentLabel ?? "Tan\u0131ms\u0131z";
+  const creditCount = sidebarSummary?.creditCount ?? null;
+  const lowCredit = sidebarSummary?.lowCredit ?? false;
 
   return (
     <div className="min-h-screen bg-[var(--surface)] text-slate-800">
       <div className="flex min-h-screen">
-        <DesktopSidebar
-          currentPath={currentPath}
-          navGroups={navGroups}
-          userName={userName}
-          userTitle={userTitle}
-          providerLabel={sidebarSummary?.providerLabel ?? "Hızlı Bilişim"}
-          environmentLabel={sidebarSummary?.environmentLabel ?? "Tanımsız"}
-          creditLabel={creditLabel}
-          senderAlias={sidebarSummary?.senderAlias}
-          updatedAtLabel={sidebarSummary?.updatedAtLabel ?? "-"}
-        />
+        <DesktopSidebar currentPath={currentPath} navGroups={navGroups} environmentLabel={environmentLabel} />
 
         <main className="flex min-w-0 flex-1 flex-col">
-          <div className="h-1 w-full bg-[var(--brand)]" />
+          <header className="sticky top-0 z-30 border-b border-[var(--line)] bg-[var(--panel)]">
+            <div className="px-4 py-3 lg:px-7 lg:py-4">
+              <div className="hidden items-center justify-between gap-6 lg:flex">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">{`\u00c7al\u0131\u015fma alan\u0131`}</p>
+                  <h1 className="mt-1 truncate text-[1.06rem] font-extrabold tracking-tight text-slate-950">{title}</h1>
+                  <p className="mt-1 truncate text-sm text-slate-600">{subtitle}</p>
+                </div>
 
-          <header className="z-20 border-b border-slate-200/80 bg-white/94 backdrop-blur-xl lg:sticky lg:top-0">
-            <div className="px-3 py-2.5 sm:px-6 xl:px-8">
-              <div className="flex flex-col gap-3 lg:gap-4">
-                <div className="flex items-center gap-2 lg:hidden">
-                  <MobileNavDrawer
-                    navGroups={navGroups}
-                    currentPath={currentPath}
-                    userName={userName}
-                    userTitle={userTitle}
-                    environmentLabel={sidebarSummary?.environmentLabel ?? "Tanımsız"}
-                    creditLabel={creditLabel}
-                    senderAlias={sidebarSummary?.senderAlias}
-                    updatedAtLabel={sidebarSummary?.updatedAtLabel ?? "-"}
-                  />
-                  <Link href="/panel" className="min-w-0 flex-1 border-l-2 border-[var(--brand)] pl-3.5 pr-1 py-1.5">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--brand)] text-sm font-black text-white">B</div>
-                      <div className="min-w-0">
-                        <p className="font-display truncate text-base font-extrabold tracking-tight text-slate-900">Bey360</p>
-                        <div className="flex items-center gap-1.5">
-                          <p className="truncate text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">{title}</p>
-                          <span className="inline-flex items-center rounded-full border border-[var(--line)] bg-white px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">
-                            {sidebarSummary?.environmentLabel ?? "Tanımsız"}
-                          </span>
-                        </div>
+                <div className="flex items-center gap-2.5">
+                  {isPanel && creditCount !== null ? (
+                    <Link
+                      href="/panel/ayarlar/hizli-bilisim"
+                      className={`inline-flex items-center gap-3 border px-4 py-2.5 text-sm transition ${
+                        lowCredit ? "border-amber-300 bg-amber-50 text-amber-900" : "border-[var(--line)] bg-[var(--panel)] text-slate-800"
+                      }`}
+                    >
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{`Kont\u00f6r`}</p>
+                        <p className="text-base font-extrabold">{formatCreditCount(creditCount)}</p>
                       </div>
-                    </div>
-                  </Link>
-                  <MobileCommandPalette navGroups={navGroups} />
-                  {notificationSummary ? (
+                      {lowCredit ? (
+                        <div className="max-w-[180px] text-[11px] font-semibold leading-4 text-amber-700">
+                          {`250 alt\u0131na d\u00fc\u015ft\u00fc. Kont\u00f6r sat\u0131n alma zaman\u0131 geldi.`}
+                        </div>
+                      ) : null}
+                    </Link>
+                  ) : null}
+
+                  {isPanel ? (
                     <NotificationCenter
-                      initialReminders={notificationSummary.reminders}
-                      initialUnreadCount={notificationSummary.unreadCount}
-                      initialOpenCount={notificationSummary.openCount}
-                      initialOverdueCount={notificationSummary.overdueCount}
+                      initialReminders={notificationSummary?.reminders ?? []}
+                      initialUnreadCount={notificationSummary?.unreadCount ?? 0}
+                      initialOpenCount={notificationSummary?.openCount ?? 0}
+                      initialOverdueCount={notificationSummary?.overdueCount ?? 0}
                     />
                   ) : null}
-                  <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[var(--brand)] text-xs font-extrabold text-white">
-                    {userInitials}
-                  </div>
-                </div>
 
-                <div className="hidden lg:flex lg:flex-col lg:gap-4 xl:flex-row xl:items-center xl:justify-between">
-                  <div className="min-w-0">
-                    <div className="hidden items-center gap-2 text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400 lg:flex">
-                      <span>Bey360</span>
-                      <span className="text-[var(--brand)]">/</span>
-                      <span className="truncate">{title}</span>
-                    </div>
-                    <div className="hidden lg:block">
-                      <h1 className="font-display mt-1 text-[1.85rem] font-extrabold tracking-tight text-slate-900">{title}</h1>
-                      <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">{subtitle}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-3">
-                    {topAction ? <div className="w-full sm:w-auto">{topAction}</div> : null}
-                    <div className="hidden items-center gap-3 lg:flex">
-                      {notificationSummary ? (
-                        <NotificationCenter
-                          initialReminders={notificationSummary.reminders}
-                          initialUnreadCount={notificationSummary.unreadCount}
-                          initialOpenCount={notificationSummary.openCount}
-                          initialOverdueCount={notificationSummary.overdueCount}
-                        />
-                      ) : null}
-                      <LockScreenButton />
-                    </div>
-                    <span className="hidden h-11 items-center rounded-[14px] border border-[var(--line)] bg-[var(--panel-soft)] px-4 text-xs font-bold tracking-[0.18em] text-slate-600 sm:inline-flex">
-                      TR
-                    </span>
-                    <div className="hidden items-center gap-3 rounded-[18px] border border-[var(--line)] bg-white px-3.5 py-2.5 shadow-[0_10px_24px_rgba(15,23,42,0.04)] sm:flex">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--brand)] text-sm font-extrabold text-white">{userInitials}</div>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-extrabold text-slate-900">{userName}</p>
-                        <p className="truncate text-xs text-slate-500">{userTitle}</p>
-                      </div>
-                    </div>
-                  </div>
+                  <UserAccountMenu
+                    userName={userName}
+                    userTitle={userTitle}
+                    userEmail={userEmail ?? shellUser?.email}
+                    avatarUrl={shellUser?.avatarUrl}
+                    initials={userInitials}
+                  />
                 </div>
+              </div>
+
+              <div className="flex items-center gap-2.5 lg:hidden">
+                {isPanel ? <MobileNavDrawer navGroups={navGroups} currentPath={currentPath} /> : null}
+
+                <Link href="/panel" className="flex min-w-0 flex-1 items-center gap-3 border border-[var(--line)] bg-[var(--panel)] px-3 py-2">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center border border-slate-200 bg-slate-50">
+                    <Image
+                      src="/brand/bey360-logo-transparent.png"
+                      alt="Bey360"
+                      width={32}
+                      height={32}
+                      className="h-8 w-8 object-contain"
+                      priority
+                    />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-[14px] font-extrabold tracking-tight text-slate-950">Bey360</span>
+                    <span className="block truncate text-[11px] text-slate-500">{title}</span>
+                  </span>
+                </Link>
+
+                {isPanel && creditCount !== null ? (
+                  <Link
+                    href="/panel/ayarlar/hizli-bilisim"
+                    className={`border px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] ${
+                      lowCredit ? "border-amber-200 bg-amber-50 text-amber-700" : "border-[var(--line)] bg-[var(--panel)] text-slate-600"
+                    }`}
+                  >
+                    <span className="block text-[9px] text-slate-400">{environmentLabel}</span>
+                    <span className="block whitespace-nowrap">{`Kont\u00f6r `}{formatCreditCount(creditCount)}</span>
+                  </Link>
+                ) : null}
+
+                {isPanel ? <MobileCommandPalette navGroups={navGroups} /> : null}
+                {isPanel ? (
+                  <NotificationCenter
+                    initialReminders={notificationSummary?.reminders ?? []}
+                    initialUnreadCount={notificationSummary?.unreadCount ?? 0}
+                    initialOpenCount={notificationSummary?.openCount ?? 0}
+                    initialOverdueCount={notificationSummary?.overdueCount ?? 0}
+                  />
+                ) : null}
               </div>
             </div>
           </header>
 
-          <div className="flex-1 overflow-y-auto px-3 py-3 pb-28 sm:px-6 sm:py-6 sm:pb-8 xl:px-8">
-            <div className="mb-4 border-b border-slate-200/80 bg-transparent px-1 pb-3 lg:hidden">
-              <div className="flex flex-col gap-3">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Bey360 / Panel</p>
-                  <h1 className="mt-1 text-[1.1rem] font-extrabold tracking-tight text-slate-900">{title}</h1>
-                  <p className="mt-1 text-[13px] leading-5 text-slate-500">{subtitle}</p>
-                </div>
-                {topAction ? <div className="flex flex-wrap gap-2">{topAction}</div> : null}
-              </div>
+          <div className="flex-1 px-4 py-4 pb-24 lg:px-6 lg:py-6 lg:pb-6">
+            <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-5">
+              {showWorkspaceCard ? (
+                <section className="erp-card p-4 sm:p-5 lg:hidden">
+                  <div className="flex flex-col gap-4">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-500">{`\u00c7al\u0131\u015fma alan\u0131`}</p>
+                      <h2 className="mt-2 font-display text-[1.45rem] font-extrabold tracking-tight text-slate-950">{title}</h2>
+                      <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">{subtitle}</p>
+                    </div>
+                    {topAction ? <div className="flex shrink-0 flex-wrap gap-2">{topAction}</div> : null}
+                  </div>
+                </section>
+              ) : null}
+
+              {!showWorkspaceCard && topAction ? <div className="hidden items-center justify-end gap-2 lg:flex">{topAction}</div> : null}
+
+              {children}
             </div>
-            {children}
           </div>
-          <MobileBottomNav currentPath={currentPath} />
         </main>
       </div>
+
+      {isPanel ? <MobileBottomNav currentPath={currentPath} /> : null}
     </div>
   );
 }
-

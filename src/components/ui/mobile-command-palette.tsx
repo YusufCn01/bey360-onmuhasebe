@@ -53,15 +53,26 @@ export function MobileCommandPalette({ navGroups }: { navGroups: ShellNavGroup[]
     };
   }, [open]);
 
+  useEffect(() => {
+    function handleCloseAll() {
+      setQuery("");
+      setOpen(false);
+    }
+
+    window.addEventListener("bey360:mobile-close-all-overlays", handleCloseAll);
+    return () => window.removeEventListener("bey360:mobile-close-all-overlays", handleCloseAll);
+  }, []);
+
   return (
     <>
       <button
         type="button"
         onClick={() => {
+          window.dispatchEvent(new CustomEvent("bey360:mobile-close-all-overlays"));
           setQuery("");
           setOpen(true);
         }}
-        className="inline-flex h-11 w-11 items-center justify-center rounded-[16px] border border-[var(--line)] bg-white text-slate-700 shadow-[0_10px_30px_rgba(15,23,42,0.06)]"
+        className="inline-flex h-11 w-11 touch-manipulation items-center justify-center rounded-[16px] border border-[var(--line)] bg-white text-slate-700 shadow-[0_10px_30px_rgba(15,23,42,0.06)]"
         aria-label="Hızlı arama"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">

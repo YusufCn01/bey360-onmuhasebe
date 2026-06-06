@@ -1,20 +1,18 @@
-﻿"use client";
+"use client";
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-const SAMPLE_TEST_SECRET_KEY = "e22f0bbe47740722984122552c552b3d284d";
-const SAMPLE_TEST_API_KEY = "e22f0bbe1774";
-
 type HizliFormState = {
-  serviceSecretKey: string;
-  serviceApiKey: string;
   serviceUsername: string;
   servicePassword: string;
   serviceCompanyCode: string;
   serviceEndpoint: string;
   serviceCreditCount: string;
+  serviceMeslekMensubuKey: string;
   hasEncryptedCredentials: boolean;
+  hasDeveloperKeys: boolean;
+  hasMeslekMensubuKey: boolean;
 };
 
 export function HizliBilisimSettingsForm({ initial }: { initial: HizliFormState }) {
@@ -26,7 +24,6 @@ export function HizliBilisimSettingsForm({ initial }: { initial: HizliFormState 
   const endpoint = form.serviceEndpoint.trim().toLowerCase();
   const isTestEndpoint = endpoint.includes("econnecttest");
   const isLiveEndpoint = endpoint.includes("econnect.hizliteknoloji.com.tr") && !isTestEndpoint;
-  const usesSampleTestKeys = form.serviceSecretKey.trim() === SAMPLE_TEST_SECRET_KEY || form.serviceApiKey.trim() === SAMPLE_TEST_API_KEY;
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -47,12 +44,14 @@ export function HizliBilisimSettingsForm({ initial }: { initial: HizliFormState 
       return;
     }
 
-    setMessage("Hızlı Bilişim ayarları kaydedildi. Girilen kullanıcı bilgileri şifrelenerek saklandı.");
+    setMessage("Hızlı Bilişim ayarları kaydedildi. Kullanıcı bilgileri şifrelenerek saklandı.");
     setForm((current) => ({
       ...current,
       serviceUsername: "",
       servicePassword: "",
+      serviceMeslekMensubuKey: "",
       hasEncryptedCredentials: true,
+      hasMeslekMensubuKey: current.hasMeslekMensubuKey || Boolean(current.serviceMeslekMensubuKey.trim()),
     }));
     router.refresh();
     setBusy(false);
@@ -96,21 +95,11 @@ export function HizliBilisimSettingsForm({ initial }: { initial: HizliFormState 
       </div>
 
       <label className="space-y-2">
-        <span className="text-sm font-semibold text-slate-600">Secret Key</span>
-        <input value={form.serviceSecretKey} onChange={(e) => setForm((c) => ({ ...c, serviceSecretKey: e.target.value }))} />
-      </label>
-
-      <label className="space-y-2">
-        <span className="text-sm font-semibold text-slate-600">API Key</span>
-        <input value={form.serviceApiKey} onChange={(e) => setForm((c) => ({ ...c, serviceApiKey: e.target.value }))} />
-      </label>
-
-      <label className="space-y-2">
         <span className="text-sm font-semibold text-slate-600">Şifrelenecek kullanıcı adı</span>
         <input
           value={form.serviceUsername}
           onChange={(e) => setForm((c) => ({ ...c, serviceUsername: e.target.value }))}
-          placeholder={form.hasEncryptedCredentials ? "Yeni kullanıcı adı girmezsen mevcut şifreli kayıt korunur" : "hizlitest"}
+          placeholder={form.hasEncryptedCredentials ? "Yeni kullanıcı adı girmezsen mevcut şifreli kayıt korunur" : "WS kullanıcı adı"}
         />
       </label>
 
@@ -120,7 +109,7 @@ export function HizliBilisimSettingsForm({ initial }: { initial: HizliFormState 
           type="password"
           value={form.servicePassword}
           onChange={(e) => setForm((c) => ({ ...c, servicePassword: e.target.value }))}
-          placeholder={form.hasEncryptedCredentials ? "Yeni parola girmezsen mevcut şifreli kayıt korunur" : "Test.1234"}
+          placeholder={form.hasEncryptedCredentials ? "Yeni parola girmezsen mevcut şifreli kayıt korunur" : "WS şifresi"}
         />
       </label>
 
@@ -130,13 +119,40 @@ export function HizliBilisimSettingsForm({ initial }: { initial: HizliFormState 
       </label>
 
       <label className="space-y-2">
-        <span className="text-sm font-semibold text-slate-600">Servis adresi</span>
+        <span className="text-sm font-semibold text-slate-600">Meslek Mensubu Key (TÜRMOB)</span>
         <input
-          value={form.serviceEndpoint}
-          onChange={(e) => setForm((c) => ({ ...c, serviceEndpoint: e.target.value }))}
-          placeholder="https://econnecttest.hizliteknoloji.com.tr/Services/HizliService.svc"
+          type="password"
+          value={form.serviceMeslekMensubuKey}
+          onChange={(e) => setForm((c) => ({ ...c, serviceMeslekMensubuKey: e.target.value }))}
+          placeholder={form.hasMeslekMensubuKey ? "Kayıtlı (gizli) · Değiştirmek için yeni key girin" : "Meslek mensubu key"}
         />
       </label>
+
+      <div className="space-y-2">
+        <span className="text-sm font-semibold text-slate-600">Baglanti ortami</span>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={setTestEndpoint}
+            className={`rounded-2xl border px-4 py-4 text-left transition ${
+              isTestEndpoint ? "border-amber-300 bg-amber-50 text-amber-900" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            <p className="text-xs font-black uppercase tracking-[0.16em]">Test</p>
+            <p className="mt-1 text-sm font-semibold">Deneme islemleri ve kontrol akisi</p>
+          </button>
+          <button
+            type="button"
+            onClick={setLiveEndpoint}
+            className={`rounded-2xl border px-4 py-4 text-left transition ${
+              isLiveEndpoint ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            <p className="text-xs font-black uppercase tracking-[0.16em]">Canli</p>
+            <p className="mt-1 text-sm font-semibold">Gercek musteri ve belge islemleri</p>
+          </button>
+        </div>
+      </div>
 
       <label className="space-y-2">
         <span className="text-sm font-semibold text-slate-600">Kontör sayısı</span>
@@ -150,13 +166,8 @@ export function HizliBilisimSettingsForm({ initial }: { initial: HizliFormState 
       </label>
 
       <div className="md:col-span-2 flex flex-wrap items-center gap-2">
-        <button type="button" onClick={setTestEndpoint} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-100">
-          Test Endpoint
-        </button>
-        <button type="button" onClick={setLiveEndpoint} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-100">
-          Gerçek Endpoint
-        </button>
         {form.hasEncryptedCredentials ? <span className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">Şifreli kimlik bilgisi kayıtlı</span> : null}
+        {form.hasDeveloperKeys ? <span className="rounded-full bg-slate-900 px-3 py-2 text-xs font-black text-white">Developer anahtarları kayıtlı</span> : null}
       </div>
 
       {isTestEndpoint ? (
@@ -177,14 +188,12 @@ export function HizliBilisimSettingsForm({ initial }: { initial: HizliFormState 
         </div>
       ) : null}
 
-      {isLiveEndpoint && usesSampleTestKeys ? (
-        <div className="md:col-span-2 rounded-[14px] border border-rose-200 bg-rose-50 px-4 py-4">
-          <p className="text-sm font-black text-rose-800">Test key ile canlıya çıkılamaz</p>
-          <p className="mt-1 text-sm text-rose-700">
-            Mailde paylaşılan örnek `SecretKey` ve `ApiKey` test içindir. Canlı endpoint seçiliyken bu değerlerle `Hatalı secret key` veya yetki hatası alırsınız.
-          </p>
-        </div>
-      ) : null}
+      <div className="md:col-span-2 rounded-[14px] border border-slate-200 bg-slate-50 px-4 py-4">
+        <p className="text-sm font-black text-slate-800">Gizli anahtar yönetimi</p>
+        <p className="mt-1 text-sm text-slate-600">
+          `Secret Key` ve `API Key` bu ekranda gösterilmez. Anahtarlar yalnızca developer tarafında yönetilir ve tenant kullanıcıları tarafından görüntülenemez.
+        </p>
+      </div>
 
       <div className="md:col-span-2 flex items-center justify-between gap-3">
         <div>

@@ -98,6 +98,7 @@ export function DocumentTemplateBuilder({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editorMode, setEditorMode] = useState<"easy" | "advanced">("easy");
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
   const [draggedColumn, setDraggedColumn] = useState<ColumnKey | null>(null);
 
@@ -247,7 +248,34 @@ export function DocumentTemplateBuilder({
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-6 xl:grid-cols-[0.85fr_1.2fr_0.95fr]">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-[var(--line)] bg-white px-5 py-4 shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Şablon Düzeni</p>
+          <h3 className="mt-1 text-xl font-extrabold text-slate-900">{templateKindMeta[kind].title}</h3>
+          <p className="mt-1 text-sm text-slate-500">Önce temel alanları düzenle, gerekirse gelişmiş moda geç.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setEditorMode("easy")}
+            className={`rounded-[10px] px-4 py-2 text-sm font-bold ${editorMode === "easy" ? "bg-[var(--brand)] text-white" : "border border-[var(--line)] bg-[var(--panel-soft)] text-slate-600"}`}
+          >
+            Kolay Mod
+          </button>
+          <button
+            type="button"
+            onClick={() => setEditorMode("advanced")}
+            className={`rounded-[10px] px-4 py-2 text-sm font-bold ${editorMode === "advanced" ? "bg-slate-900 text-white" : "border border-[var(--line)] bg-[var(--panel-soft)] text-slate-600"}`}
+          >
+            Gelişmiş Mod
+          </button>
+          <button type="button" onClick={() => saveTemplate(false)} disabled={busy} className="rounded-[10px] bg-[var(--brand)] px-4 py-2.5 text-sm font-extrabold text-white hover:bg-[var(--brand-strong)] disabled:opacity-60">
+            {busy ? "Kaydediliyor..." : "Kaydet"}
+          </button>
+        </div>
+      </div>
+
+      <div className={`grid gap-6 ${editorMode === "easy" ? "xl:grid-cols-[0.95fr_1.15fr]" : "xl:grid-cols-[0.85fr_1.2fr_0.95fr]"}`}>
         <section className="rounded-[14px] border border-[var(--line)] bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Hazır Şablonlar</p>
           <h3 className="mt-1 text-xl font-extrabold text-slate-900">{templateKindMeta[kind].title}</h3>
@@ -274,6 +302,28 @@ export function DocumentTemplateBuilder({
           </div>
 
           <div className="mt-6 space-y-3">
+            <div className="grid gap-3 md:grid-cols-3">
+              {presets.slice(0, 3).map((preset, index) => (
+                <button
+                  key={`quick-${preset.slug}`}
+                  type="button"
+                  onClick={() => applyPreset(preset.slug)}
+                  className={`rounded-[14px] border p-4 text-left transition ${
+                    index === 0
+                      ? "border-slate-200 bg-white hover:bg-slate-50"
+                      : index === 1
+                        ? "border-[var(--brand)] bg-[var(--brand-soft)] hover:bg-[var(--brand-ghost)]"
+                        : "border-amber-200 bg-amber-50 hover:bg-amber-100/70"
+                  }`}
+                >
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                    {index === 0 ? "Sade Kurulum" : index === 1 ? "Kurumsal Görünüm" : "Resmi Görünüm"}
+                  </p>
+                  <p className="mt-2 text-base font-extrabold text-slate-900">{preset.name}</p>
+                  <p className="mt-2 text-sm text-slate-500">{preset.description}</p>
+                </button>
+              ))}
+            </div>
             <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Örnek Kütüphanesi</p>
             {presets.map((preset) => (
               <div key={preset.slug} className="rounded-[12px] border border-[var(--line)] bg-slate-50 p-4">
@@ -290,14 +340,15 @@ export function DocumentTemplateBuilder({
         <section className="rounded-[14px] border border-[var(--line)] bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Sürükle Bırak Alanı</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">{editorMode === "easy" ? "Hızlı Düzenleme" : "Sürükle Bırak Alanı"}</p>
               <h3 className="mt-1 text-xl font-extrabold text-slate-900">{selectedTemplate.name}</h3>
-              <p className="mt-1 text-sm text-slate-500">Blokları tutup sürükleyerek sırala. Sağ taraftan metin ve stil düzenle.</p>
+              <p className="mt-1 text-sm text-slate-500">
+                {editorMode === "easy"
+                  ? "En çok kullanılan alanları buradan düzenleyebilirsin. Gelişmiş düzenleme için sağ üstten gelişmiş moda geç."
+                  : "Blokları tutup sürükleyerek sırala. Sağ taraftan metin ve stil düzenle."}
+              </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => saveTemplate(false)} disabled={busy} className="rounded-[10px] bg-[var(--brand)] px-4 py-2.5 text-sm font-extrabold text-white hover:bg-[var(--brand-strong)] disabled:opacity-60">
-                {busy ? "Kaydediliyor..." : "Kaydet"}
-              </button>
               <button type="button" onClick={() => saveTemplate(true)} disabled={busy} className="rounded-[10px] border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60">
                 Varsayılan Yap
               </button>
@@ -335,7 +386,7 @@ export function DocumentTemplateBuilder({
             </label>
           </div>
 
-          <div className="mt-5 space-y-3">
+          <div className={`mt-5 space-y-3 ${editorMode === "easy" ? "hidden" : ""}`}>
             {selectedTemplate.content.blocks.map((block) => (
               <button
                 key={block.id}
@@ -366,6 +417,7 @@ export function DocumentTemplateBuilder({
             ))}
           </div>
         </section>
+        {editorMode === "advanced" ? (
         <section className="rounded-[14px] border border-[var(--line)] bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Düzenleme Paneli</p>
           <h3 className="mt-1 text-xl font-extrabold text-slate-900">{selectedBlock?.title ?? "Blok seçin"}</h3>
@@ -464,6 +516,7 @@ export function DocumentTemplateBuilder({
             {error ? <p className="text-sm font-semibold text-rose-600">{error}</p> : null}
           </div>
         </section>
+        ) : null}
       </div>
 
       <section className="rounded-[14px] border border-[var(--line)] bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.05)]">

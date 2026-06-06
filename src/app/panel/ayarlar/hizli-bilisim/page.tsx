@@ -36,6 +36,8 @@ function compactNumber(value?: number | null) {
 export default async function HizliBilisimPage() {
   const { membership, tenant, user } = await getTenantContext();
   let settings = await db.eInvoiceSettings.findUnique({ where: { tenantId: tenant.id } });
+  const hasDeveloperKeys = Boolean(settings?.serviceSecretKey && settings?.serviceApiKey) || Boolean(process.env.HIZLI_BILISIM_SECRET_KEY && process.env.HIZLI_BILISIM_API_KEY);
+  const lowCredit = typeof settings?.serviceCreditCount === "number" && settings.serviceCreditCount <= 250;
   let dashboardSnapshot: {
     totalCredit?: number | null;
     remainCredit?: number | null;
@@ -95,7 +97,7 @@ export default async function HizliBilisimPage() {
   return (
     <AppShell
       title="Hızlı Bilişim"
-      subtitle="Bağlantı, alias ve kontör bilgisini tek bir operasyon ekranında yönetin."
+      subtitle="Baglanti bilgilerini kaydedin, kontor durumunu izleyin ve e-Donusum akislarini tek ekrandan yonetin."
       currentPath="/panel/ayarlar/hizli-bilisim"
       navGroups={tenantNavGroups}
       userName={user.fullName}
@@ -109,47 +111,57 @@ export default async function HizliBilisimPage() {
               <div className="flex flex-wrap items-center gap-3">
                 <StatusPill label={settings?.provider ?? "NONE"} tone="blue" />
                 <StatusPill label={environmentLabel} tone={environmentTone} />
-                {settings?.gibAlias ? <StatusPill label="GB Hazır" tone="emerald" /> : <StatusPill label="GB Bekleniyor" tone="amber" />}
+                {settings?.gibAlias ? <StatusPill label="GB hazir" tone="emerald" /> : <StatusPill label="Baglanti bekleniyor" tone="amber" />}
               </div>
               <div>
-                <h2 className="text-[2rem] font-extrabold tracking-tight text-slate-950">Bağlantı özeti</h2>
+                <h2 className="text-[2rem] font-extrabold tracking-tight text-slate-950">Hizmet durumu</h2>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                  Ortam, gönderici bilgisi ve servis özeti tek bakışta burada. Test ve canlı ayrımını endpoint belirler; canlı kullanıma geçmeden önce portalden alınan gerçek WS kullanıcı adı ve şifresiyle kayıt yapılmalıdır.
+                  Son kullanici icin gerekli alanlar burada tutulur. Baglanti bilgilerini kaydedince sistem kontoru ve belge ozetini otomatik yeniler.
                 </p>
               </div>
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <div className="rounded-[14px] border border-[var(--line)] bg-white/80 px-4 py-4">
                   <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Kalan kontör</p>
                   <p className="mt-2 text-[1.75rem] font-extrabold text-slate-900">{compactNumber(settings?.serviceCreditCount ?? null)}</p>
-                  <p className="mt-1 text-xs text-slate-500">Güncelleme: {formatDateTime(settings?.serviceCreditUpdatedAt)}</p>
+                  <p className="mt-1 text-xs text-slate-500">Son guncelleme: {formatDateTime(settings?.serviceCreditUpdatedAt)}</p>
                 </div>
                 <div className="rounded-[14px] border border-[var(--line)] bg-white/80 px-4 py-4">
                   <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Toplam kredi</p>
                   <p className="mt-2 text-[1.75rem] font-extrabold text-slate-900">{compactNumber(dashboardSnapshot?.totalCredit)}</p>
-                  <p className="mt-1 text-xs text-slate-500">Servis panel özeti</p>
+                  <p className="mt-1 text-xs text-slate-500">Toplam hakkiniz</p>
                 </div>
                 <div className="rounded-[14px] border border-[var(--line)] bg-white/80 px-4 py-4">
                   <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Giden / Arşiv</p>
                   <p className="mt-2 text-[1.75rem] font-extrabold text-slate-900">{compactNumber(dashboardSnapshot?.outboxCount)} / {compactNumber(dashboardSnapshot?.archiveCount)}</p>
-                  <p className="mt-1 text-xs text-slate-500">Gönderilen belge yoğunluğu</p>
+                  <p className="mt-1 text-xs text-slate-500">Gonderilen belge ozeti</p>
                 </div>
                 <div className="rounded-[14px] border border-[var(--line)] bg-white/80 px-4 py-4">
                   <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Gelen belge</p>
                   <p className="mt-2 text-[1.75rem] font-extrabold text-slate-900">{compactNumber(dashboardSnapshot?.inboxCount)}</p>
-                  <p className="mt-1 text-xs text-slate-500">Servis panel özeti</p>
+                  <p className="mt-1 text-xs text-slate-500">Gelen belge ozeti</p>
                 </div>
               </div>
             </div>
 
             <div className="space-y-3 rounded-[16px] border border-[var(--line)] bg-white/85 p-4 backdrop-blur">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Hızlı Kontrol</p>
-              <StatRow label="Servis adresi" value={settings?.serviceEndpoint ? (isTestEndpoint ? "Test endpoint" : isLiveEndpoint ? "Canlı endpoint" : "Özel endpoint") : "Tanımsız"} />
-              <StatRow label="Gönderici VKN" value={settings?.senderTaxNumber ?? "Henüz yok"} />
-              <StatRow label="Gönderici GB" value={settings?.gibAlias ?? "Henüz yok"} />
-              <StatRow label="Şifreli kimlik" value={settings?.serviceUsername && settings?.servicePassword ? "Hazır" : "Eksik"} />
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Baglanti kontrolu</p>
+              <StatRow label="Baglanti ortami" value={environmentLabel} />
+              <StatRow label="Gonderici VKN" value={settings?.senderTaxNumber ?? "Henuz yok"} />
+              <StatRow label="Gonderici etiketi" value={settings?.gibAlias ?? "Henuz yok"} />
+              <StatRow label="Kimlik durumu" value={settings?.serviceUsername && settings?.servicePassword ? "Hazir" : "Eksik"} />
+              <StatRow label="Turmob key" value={settings?.serviceMeslekMensubuKey ? "Kayitli" : "Eksik"} />
             </div>
           </div>
         </section>
+
+        {lowCredit ? (
+          <div className="rounded-[14px] border border-amber-200 bg-amber-50 px-4 py-4">
+            <p className="text-sm font-black text-amber-800">Kontor uyarisi</p>
+            <p className="mt-1 text-sm text-amber-700">
+              Kalan kontor 250 ve altina dustu. Kesintisiz belge gonderimi icin yeni kontor satin almanizi oneririz.
+            </p>
+          </div>
+        ) : null}
 
         {isTestEndpoint ? (
           <div className="rounded-[14px] border border-amber-200 bg-amber-50 px-4 py-4">
@@ -200,22 +212,23 @@ export default async function HizliBilisimPage() {
         </SectionCard>
 
         <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-          <SectionCard eyebrow="Bağlantı Ayarı" title="Servis bilgilerini düzenle">
+          <SectionCard eyebrow="Baglanti Ayari" title="Girilmesi gereken bilgiler">
             <HizliBilisimSettingsForm
               initial={{
-                serviceSecretKey: settings?.serviceSecretKey ?? "",
-                serviceApiKey: settings?.serviceApiKey ?? "",
                 serviceUsername: "",
                 servicePassword: "",
                 serviceCompanyCode: settings?.serviceCompanyCode ?? "",
                 serviceEndpoint: settings?.serviceEndpoint ?? "",
                 serviceCreditCount: settings?.serviceCreditCount?.toString() ?? "",
+                serviceMeslekMensubuKey: "",
                 hasEncryptedCredentials: Boolean(settings?.serviceUsername && settings?.servicePassword),
+                hasDeveloperKeys,
+                hasMeslekMensubuKey: Boolean(settings?.serviceMeslekMensubuKey),
               }}
             />
           </SectionCard>
 
-          <SectionCard eyebrow="Hızlı İşlemler" title="Bağlantı ve gönderim araçları">
+          <SectionCard eyebrow="Hizli Islemler" title="Kontrol ve test adimlari">
             <div className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <TestHizliBilisimButton />
@@ -226,19 +239,19 @@ export default async function HizliBilisimPage() {
                 <SampleHizliEFaturaSendButton />
               </div>
               <div className="rounded-[14px] border border-dashed border-[var(--line)] bg-[var(--panel-soft)] px-4 py-4">
-                <p className="text-sm font-black text-slate-900">Akış özeti</p>
+                <p className="text-sm font-black text-slate-900">Kullanim ozeti</p>
                 <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-600">
-                  <li>Yeni kullanıcı bilgisi önce `UtilEncrypt` ile şifrelenir.</li>
-                  <li>`Bağlantıyı Test Et` login, GB, VKN ve kontör özetini yeniler.</li>
-                  <li>`Kontörü Güncelle` sadece kredi ve panel verisini servis üzerinden tazeler.</li>
-                  <li>Alias doğrulama ve belge gönderimi bu kayıtlarla çalışır.</li>
+                  <li>Yeni WS kullanici bilgisi kaydedildiginde sistem bunu otomatik sifreler.</li>
+                  <li>`Baglantiyi Test Et` islemi firma bilgisi ve kontor ozetini yeniler.</li>
+                  <li>`Kontoru Guncelle` butonu kalan bakiyeyi servis uzerinden yeniden okur.</li>
+                  <li>Belge sorgulama ve gonderim islemleri bu kayitlarla calisir.</li>
                 </ul>
               </div>
             </div>
           </SectionCard>
         </div>
 
-        <SectionCard eyebrow="Alias Doğrulama" title="GİB kullanıcı ve alias sorgulama">
+        <SectionCard eyebrow="Musteri Kontrolu" title="Musteri alias sorgulama">
           <HizliBilisimGibLookup />
         </SectionCard>
       </div>

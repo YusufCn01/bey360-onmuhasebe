@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { uploadImage } from "@/lib/client-upload";
 
 type CompanySettingsFormState = {
   name: string;
@@ -21,31 +22,33 @@ type CompanySettingsFormState = {
 };
 
 const text = {
-  saveFailed: "Firma bilgileri g\u00fcncellenemedi.",
-  saved: "Firma bilgileri g\u00fcncellendi.",
-  companyName: "Firma ad\u0131",
+  saveFailed: "Firma bilgileri güncellenemedi.",
+  saved: "Firma bilgileri güncellendi.",
+  uploadFailed: "Görsel yüklenemedi.",
+  companyName: "Firma adı",
   taxNumber: "Vergi no",
   phone: "Telefon",
   email: "E-posta",
-  city: "\u015eehir",
-  district: "\u0130l\u00e7e",
+  city: "Şehir",
+  district: "İlçe",
   address: "Adres",
   primaryLogo: "Ana Logo",
-  secondaryLogo: "\u0130kinci Logo",
-  signatureImage: "\u0130mza G\u00f6rseli",
-  stampImage: "Ka\u015fe / M\u00fch\u00fcr",
-  signatureName: "\u0130mza ad\u0131",
-  signatureTitle: "\u0130mza unvan\u0131",
+  secondaryLogo: "İkinci Logo",
+  signatureImage: "İmza Görseli",
+  stampImage: "Kaşe / Mühür",
+  signatureName: "İmza adı",
+  signatureTitle: "İmza unvanı",
   save: "Firma Bilgilerini Kaydet",
   saving: "Kaydediliyor...",
-  primaryLogoHelp: "Belge ba\u015fl\u0131\u011f\u0131nda varsay\u0131lan ana logo olarak kullan\u0131l\u0131r.",
-  secondaryLogoHelp: "\u015eube, entegrasyon veya partner logosu i\u00e7in ayr\u0131ld\u0131.",
-  signatureHelp: "Belge alt\u0131ndaki imza alan\u0131nda g\u00f6r\u00fcn\u00fcr.",
-  stampHelp: "\u00d6nizleme ve bask\u0131larda kar\u015f\u0131 imza alan\u0131nda ka\u015fe olarak g\u00f6sterilir.",
+  uploading: "Yükleniyor...",
+  primaryLogoHelp: "Belge başlığında varsayılan ana logo olarak kullanılır.",
+  secondaryLogoHelp: "Şube, entegrasyon veya partner logosu için ayrıldı.",
+  signatureHelp: "Belge altındaki imza alanında görünür.",
+  stampHelp: "Önizleme ve baskılarda kaşe alanında gösterilir.",
   companyLogoAlt: "Firma logosu",
-  secondaryLogoAlt: "\u0130kinci logo",
-  signatureAlt: "\u0130mza g\u00f6rseli",
-  stampAlt: "Ka\u015fe veya m\u00fch\u00fcr",
+  secondaryLogoAlt: "İkinci logo",
+  signatureAlt: "İmza görseli",
+  stampAlt: "Kaşe veya mühür",
 };
 
 function uploadCardClass() {
@@ -64,17 +67,23 @@ export function CompanySettingsForm({
   const router = useRouter();
   const [form, setForm] = useState(initial);
   const [busy, setBusy] = useState(false);
+  const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  function updateImageField(field: "logoUrl" | "secondaryLogoUrl" | "signatureImageUrl" | "stampImageUrl", file: File | null) {
+  async function updateImageField(field: "logoUrl" | "secondaryLogoUrl" | "signatureImageUrl" | "stampImageUrl", file: File | null) {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = typeof reader.result === "string" ? reader.result : "";
-      setForm((current) => ({ ...current, [field]: result }));
-    };
-    reader.readAsDataURL(file);
+    setUploadingField(field);
+    setError(null);
+
+    try {
+      const url = await uploadImage(file, field);
+      setForm((current) => ({ ...current, [field]: url }));
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : text.uploadFailed);
+    } finally {
+      setUploadingField(null);
+    }
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -138,45 +147,38 @@ export function CompanySettingsForm({
       </div>
 
       <div className="grid gap-4 xl:grid-cols-4">
-        <div className={uploadCardClass()}>
-          <p className="text-sm font-bold text-slate-700">{text.primaryLogo}</p>
-          <input className="mt-3 text-sm" type="file" accept="image/*" onChange={(event) => updateImageField("logoUrl", event.target.files?.[0] ?? null)} />
-          {form.logoUrl ? (
-            <Image src={form.logoUrl} alt={text.companyLogoAlt} width={160} height={72} unoptimized className="mt-4 h-16 w-auto rounded-[10px] border border-slate-200 bg-white p-2" />
-          ) : (
-            <p className="mt-4 text-xs text-slate-500">{text.primaryLogoHelp}</p>
-          )}
-        </div>
-
-        <div className={uploadCardClass()}>
-          <p className="text-sm font-bold text-slate-700">{text.secondaryLogo}</p>
-          <input className="mt-3 text-sm" type="file" accept="image/*" onChange={(event) => updateImageField("secondaryLogoUrl", event.target.files?.[0] ?? null)} />
-          {form.secondaryLogoUrl ? (
-            <Image src={form.secondaryLogoUrl} alt={text.secondaryLogoAlt} width={160} height={72} unoptimized className="mt-4 h-16 w-auto rounded-[10px] border border-slate-200 bg-white p-2" />
-          ) : (
-            <p className="mt-4 text-xs text-slate-500">{text.secondaryLogoHelp}</p>
-          )}
-        </div>
-
-        <div className={uploadCardClass()}>
-          <p className="text-sm font-bold text-slate-700">{text.signatureImage}</p>
-          <input className="mt-3 text-sm" type="file" accept="image/*" onChange={(event) => updateImageField("signatureImageUrl", event.target.files?.[0] ?? null)} />
-          {form.signatureImageUrl ? (
-            <Image src={form.signatureImageUrl} alt={text.signatureAlt} width={160} height={72} unoptimized className="mt-4 h-16 w-auto rounded-[10px] border border-slate-200 bg-white p-2 object-contain" />
-          ) : (
-            <p className="mt-4 text-xs text-slate-500">{text.signatureHelp}</p>
-          )}
-        </div>
-
-        <div className={uploadCardClass()}>
-          <p className="text-sm font-bold text-slate-700">{text.stampImage}</p>
-          <input className="mt-3 text-sm" type="file" accept="image/*" onChange={(event) => updateImageField("stampImageUrl", event.target.files?.[0] ?? null)} />
-          {form.stampImageUrl ? (
-            <Image src={form.stampImageUrl} alt={text.stampAlt} width={160} height={72} unoptimized className="mt-4 h-16 w-auto rounded-[10px] border border-slate-200 bg-white p-2 object-contain" />
-          ) : (
-            <p className="mt-4 text-xs text-slate-500">{text.stampHelp}</p>
-          )}
-        </div>
+        <UploadCard
+          title={text.primaryLogo}
+          help={text.primaryLogoHelp}
+          alt={text.companyLogoAlt}
+          value={form.logoUrl}
+          busy={uploadingField === "logoUrl"}
+          onFileChange={(file) => updateImageField("logoUrl", file)}
+        />
+        <UploadCard
+          title={text.secondaryLogo}
+          help={text.secondaryLogoHelp}
+          alt={text.secondaryLogoAlt}
+          value={form.secondaryLogoUrl}
+          busy={uploadingField === "secondaryLogoUrl"}
+          onFileChange={(file) => updateImageField("secondaryLogoUrl", file)}
+        />
+        <UploadCard
+          title={text.signatureImage}
+          help={text.signatureHelp}
+          alt={text.signatureAlt}
+          value={form.signatureImageUrl}
+          busy={uploadingField === "signatureImageUrl"}
+          onFileChange={(file) => updateImageField("signatureImageUrl", file)}
+        />
+        <UploadCard
+          title={text.stampImage}
+          help={text.stampHelp}
+          alt={text.stampAlt}
+          value={form.stampImageUrl}
+          busy={uploadingField === "stampImageUrl"}
+          onFileChange={(file) => updateImageField("stampImageUrl", file)}
+        />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -195,10 +197,40 @@ export function CompanySettingsForm({
           {error ? <p className="text-sm font-semibold text-rose-600">{error}</p> : null}
           {message ? <p className="text-sm font-semibold text-emerald-600">{message}</p> : null}
         </div>
-        <button disabled={busy} className="rounded-2xl bg-[var(--brand)] px-5 py-3 text-sm font-black text-white disabled:opacity-60">
+        <button disabled={busy || uploadingField !== null} className="rounded-2xl bg-[var(--brand)] px-5 py-3 text-sm font-black text-white disabled:opacity-60">
           {busy ? text.saving : text.save}
         </button>
       </div>
     </form>
+  );
+}
+
+function UploadCard({
+  title,
+  help,
+  alt,
+  value,
+  busy,
+  onFileChange,
+}: {
+  title: string;
+  help: string;
+  alt: string;
+  value: string;
+  busy: boolean;
+  onFileChange: (file: File | null) => void;
+}) {
+  return (
+    <div className={uploadCardClass()}>
+      <p className="text-sm font-bold text-slate-700">{title}</p>
+      <input className="mt-3 text-sm" type="file" accept="image/*" onChange={(event) => onFileChange(event.target.files?.[0] ?? null)} />
+      {busy ? (
+        <p className="mt-4 text-xs font-semibold text-slate-500">{text.uploading}</p>
+      ) : value ? (
+        <Image src={value} alt={alt} width={160} height={72} unoptimized className="mt-4 h-16 w-auto rounded-[10px] border border-slate-200 bg-white p-2 object-contain" />
+      ) : (
+        <p className="mt-4 text-xs text-slate-500">{help}</p>
+      )}
+    </div>
   );
 }

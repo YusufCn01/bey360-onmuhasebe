@@ -147,6 +147,7 @@ export function buildPreliminaryUblXml({
   const issueDate = invoice.issueDate.toISOString().slice(0, 10);
   const issueTime = invoice.issueDate.toISOString().slice(11, 19);
   const taxAmount = Number(invoice.vatTotal);
+  const withholdingAmount = Number(invoice.withholdingTotal ?? 0);
   const lineExtensionAmount = Number(invoice.subtotal);
   const taxInclusiveAmount = Number(invoice.grandTotal);
   const payableAmount = Number(invoice.grandTotal);
@@ -163,6 +164,8 @@ export function buildPreliminaryUblXml({
       const vatRate = Number(item.vatRate);
       const lineNet = quantity * unitPrice;
       const lineVat = lineNet * (vatRate / 100);
+      const lineWithholdingRate = Number(item.withholdingRate ?? 0);
+      const lineWithholdingAmount = Number(item.withholdingAmount ?? 0);
 
       return `
   <cac:InvoiceLine>
@@ -183,6 +186,21 @@ export function buildPreliminaryUblXml({
         </cac:TaxCategory>
       </cac:TaxSubtotal>
     </cac:TaxTotal>
+    ${lineWithholdingAmount > 0 ? `
+    <cac:WithholdingTaxTotal>
+      <cbc:TaxAmount currencyID="TRY">${escapeXml(decimal(lineWithholdingAmount))}</cbc:TaxAmount>
+      <cac:TaxSubtotal>
+        <cbc:TaxableAmount currencyID="TRY">${escapeXml(decimal(lineNet))}</cbc:TaxableAmount>
+        <cbc:TaxAmount currencyID="TRY">${escapeXml(decimal(lineWithholdingAmount))}</cbc:TaxAmount>
+        <cbc:Percent>${escapeXml(decimal(lineWithholdingRate, 2))}</cbc:Percent>
+        <cac:TaxCategory>
+          <cac:TaxScheme>
+            <cbc:Name>Tevkifat</cbc:Name>
+            <cbc:TaxTypeCode>9015</cbc:TaxTypeCode>
+          </cac:TaxScheme>
+        </cac:TaxCategory>
+      </cac:TaxSubtotal>
+    </cac:WithholdingTaxTotal>` : ""}
     <cac:Item>
       <cbc:Name>${escapeXml(item.description)}</cbc:Name>
       <cac:SellersItemIdentification>
@@ -248,12 +266,27 @@ export function buildPreliminaryUblXml({
       </cac:TaxCategory>
     </cac:TaxSubtotal>
   </cac:TaxTotal>
+  ${withholdingAmount > 0 ? `
+  <cac:WithholdingTaxTotal>
+    <cbc:TaxAmount currencyID="TRY">${escapeXml(decimal(withholdingAmount))}</cbc:TaxAmount>
+    <cac:TaxSubtotal>
+      <cbc:TaxableAmount currencyID="TRY">${escapeXml(decimal(lineExtensionAmount))}</cbc:TaxableAmount>
+      <cbc:TaxAmount currencyID="TRY">${escapeXml(decimal(withholdingAmount))}</cbc:TaxAmount>
+      <cbc:Percent>${escapeXml(decimal(lineExtensionAmount > 0 ? (withholdingAmount / lineExtensionAmount) * 100 : 0, 2))}</cbc:Percent>
+      <cac:TaxCategory>
+        <cac:TaxScheme>
+          <cbc:Name>Tevkifat</cbc:Name>
+          <cbc:TaxTypeCode>9015</cbc:TaxTypeCode>
+        </cac:TaxScheme>
+      </cac:TaxCategory>
+    </cac:TaxSubtotal>
+  </cac:WithholdingTaxTotal>` : ""}
   <cac:LegalMonetaryTotal>
     <cbc:LineExtensionAmount currencyID="TRY">${escapeXml(decimal(lineExtensionAmount))}</cbc:LineExtensionAmount>
     <cbc:TaxExclusiveAmount currencyID="TRY">${escapeXml(decimal(lineExtensionAmount))}</cbc:TaxExclusiveAmount>
     <cbc:TaxInclusiveAmount currencyID="TRY">${escapeXml(decimal(taxInclusiveAmount))}</cbc:TaxInclusiveAmount>
     <cbc:AllowanceTotalAmount currencyID="TRY">0.00</cbc:AllowanceTotalAmount>
-    <cbc:PayableAmount currencyID="TRY">${escapeXml(decimal(payableAmount))}</cbc:PayableAmount>
+    <cbc:PayableAmount currencyID="TRY">${escapeXml(decimal(payableAmount - withholdingAmount))}</cbc:PayableAmount>
   </cac:LegalMonetaryTotal>${lines}
 </Invoice>`;
 }

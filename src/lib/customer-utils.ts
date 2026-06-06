@@ -28,6 +28,9 @@ export type CustomerPayload = {
   phoneCountryCode?: string;
   currentDebt?: string | number;
   currentCredit?: string | number;
+  eInvoiceRegistered?: boolean;
+  eInvoiceAlias?: string;
+  eInvoiceCheckNote?: string;
 };
 
 function clean(value: string | null | undefined) {
@@ -109,6 +112,9 @@ export function buildCustomerWriteData(payload: CustomerPayload): Prisma.Custome
     openingBalanceDate: parsedOpeningBalanceDate && !Number.isNaN(parsedOpeningBalanceDate.getTime()) ? parsedOpeningBalanceDate : null,
     currentDebt,
     currentCredit,
+    eInvoiceRegistered: payload.eInvoiceRegistered ?? null,
+    eInvoiceAlias: clean(payload.eInvoiceAlias),
+    eInvoiceCheckNote: clean(payload.eInvoiceCheckNote),
   };
 }
 

@@ -126,10 +126,33 @@ export type HizliBilisimDocumentFileResult = {
   rawResponse?: string | null;
 };
 
+export type HizliBilisimMukellefResult = {
+  success: boolean;
+  note: string;
+  mukellef?: Record<string, unknown> | null;
+  rawResponse?: string | null;
+};
+
 type FlatRecord = Record<string, unknown>;
 
 function onlyDigits(value: string | null | undefined) {
   return String(value ?? "").replace(/\D/g, "");
+}
+
+async function fetchWithTimeout(input: RequestInfo, init: RequestInit = {}, timeoutMs = 25000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(input, { ...init, signal: controller.signal });
+    return response;
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Hızlı Bilişim servis zaman aşımı. Lütfen tekrar deneyin.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function normalizeServiceRoots(value: string) {
@@ -324,6 +347,31 @@ function getRequiredToken(login?: LoginResult | null) {
   return token;
 }
 
+function buildAuthHeader(login?: LoginResult | null) {
+  const token = getRequiredToken(login);
+  return token.toLowerCase().startsWith("bearer ") ? token : `Bearer ${token}`;
+}
+
+function extractTokenFromHeader(raw: string | null) {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  if (trimmed.toLowerCase().startsWith("bearer ")) {
+    return trimmed.slice(7).trim();
+  }
+  return trimmed;
+}
+
+function extractTokenFromText(text: string | null | undefined) {
+  const raw = String(text ?? "").trim();
+  if (!raw) return null;
+  const jwtMatch = raw.match(/[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+/);
+  if (jwtMatch) {
+    return jwtMatch[0];
+  }
+  return null;
+}
+
 async function callRestGet(
   settings: EInvoiceSettings,
   method: string,
@@ -338,11 +386,11 @@ async function callRestGet(
     url.searchParams.set(key, String(value));
   }
 
-  const response = await fetch(url.toString(), {
+  const response = await fetchWithTimeout(url.toString(), {
     method: "GET",
     headers: {
       Accept: "application/json, text/plain;q=0.9, */*;q=0.8",
-      Authorization: `Bearer ${getRequiredToken(login)}`,
+      Authorization: buildAuthHeader(login),
     },
   });
 
@@ -366,11 +414,11 @@ async function callRestPost(
   const { restBase } = normalizeServiceRoots(settings.serviceEndpoint ?? "");
   const targetUrl = `${restBase}/${method}`;
 
-  const response = await fetch(targetUrl, {
+  const response = await fetchWithTimeout(targetUrl, {
     method: "POST",
     headers: {
       Accept: "application/json, text/plain;q=0.9, */*;q=0.8",
-      ...(includeAuthHeaders ? { Authorization: `Bearer ${getRequiredToken(login)}` } : {}),
+      ...(includeAuthHeaders ? { Authorization: buildAuthHeader(login) } : {}),
       "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
     },
     body: formData.toString(),
@@ -389,11 +437,11 @@ async function callRestJson(
   const { restBase } = normalizeServiceRoots(settings.serviceEndpoint ?? "");
   const targetUrl = `${restBase}/${method}`;
 
-  const response = await fetch(targetUrl, {
+  const response = await fetchWithTimeout(targetUrl, {
     method: "POST",
     headers: {
       Accept: "application/json, text/plain;q=0.9, */*;q=0.8",
-      Authorization: `Bearer ${getRequiredToken(login)}`,
+      Authorization: buildAuthHeader(login),
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
@@ -408,7 +456,7 @@ function resolveControlAppType(scenario: EInvoiceScenario) {
 }
 
 function resolveSendAppType(scenario: EInvoiceScenario) {
-  return scenario === "E_ARCHIVE" ? 3 : 2;
+  return scenario === "E_ARCHIVE" ? 3 : 1;
 }
 
 function resolveDestinationIdentifier(document: EInvoiceDocument, invoice: InvoiceWithRelations) {
@@ -462,6 +510,8 @@ function buildInvoiceModel({
     const lineNet = Number((quantity * unitPrice).toFixed(2));
     const taxPercent = Number(item.vatRate);
     const taxAmount = Number((lineNet * taxPercent / 100).toFixed(2));
+    const withholdingPercent = Number(item.withholdingRate ?? 0);
+    const withholdingAmount = Number((Number(item.withholdingAmount ?? 0)).toFixed(2));
     return {
       ID: index + 1,
       Item_Name: item.description,
@@ -471,6 +521,7 @@ function buildInvoiceModel({
       Price_Amount: Number(unitPrice.toFixed(2)),
       LineExtensionAmount: lineNet,
       TaxAmount: taxAmount,
+      WithholdingTaxAmount: withholdingAmount,
       TaxPercent: taxPercent,
       lineTaxes: [
         {
@@ -483,12 +534,25 @@ function buildInvoiceModel({
           Tax_Exem_Code: "",
         },
       ],
+      lineWithholdingTaxes:
+        withholdingAmount > 0
+          ? [
+              {
+                Tax_Name: "Tevkifat",
+                Tax_Code: "9015",
+                Tax_Perc: withholdingPercent,
+                Tax_Base: lineNet,
+                Tax_Amnt: withholdingAmount,
+              },
+            ]
+          : [],
     };
   });
 
   const lineExtensionAmount = Number(lineItems.reduce((sum, item) => sum + item.LineExtensionAmount, 0).toFixed(2));
   const taxTotal = Number(lineItems.reduce((sum, item) => sum + item.TaxAmount, 0).toFixed(2));
-  const payableAmount = Number(Number(invoice.grandTotal).toFixed(2));
+  const withholdingTotal = Number(invoice.items.reduce((sum, item) => sum + Number(item.withholdingAmount ?? 0), 0).toFixed(2));
+  const payableAmount = Number((Number(invoice.grandTotal) - withholdingTotal).toFixed(2));
 
   const customerParty = {
     IdentificationID: customerIdentifier,
@@ -541,6 +605,7 @@ function buildInvoiceModel({
       TaxInclusiveAmount: payableAmount,
       TaxAmount: taxTotal,
       PayableAmount: payableAmount,
+      WithholdingTaxAmount: withholdingTotal,
       IsInternetSale: false,
       Invoice_Note: note,
       Note: note,
@@ -656,9 +721,16 @@ export async function loginToHizliBilisim(settings: EInvoiceSettings): Promise<L
   const loginUrl = `${restBase}/Login`;
   const loginPayload = { apiKey, username, password };
 
-  const attempts: Array<() => Promise<{ response: Response; rawResponse: string; parsed: Record<string, unknown> | null }>> = [
+  const attempts: Array<
+    () => Promise<{
+      response: Response;
+      rawResponse: string;
+      parsed: Record<string, unknown> | null;
+      headerToken: string | null;
+    }>
+  > = [
     async () => {
-      const response = await fetch(loginUrl, {
+      const response = await fetchWithTimeout(loginUrl, {
         method: "POST",
         headers: {
           Accept: "application/json, text/plain;q=0.9, */*;q=0.8",
@@ -667,36 +739,70 @@ export async function loginToHizliBilisim(settings: EInvoiceSettings): Promise<L
         body: JSON.stringify(loginPayload),
       });
       const rawResponse = await response.text();
-      return { response, rawResponse, parsed: parseResponse(rawResponse) };
+      const headerToken =
+        extractTokenFromHeader(response.headers.get("authorization")) ??
+        extractTokenFromHeader(response.headers.get("Authorization")) ??
+        extractTokenFromHeader(response.headers.get("token")) ??
+        extractTokenFromHeader(response.headers.get("x-access-token"));
+      return { response, rawResponse, parsed: parseResponse(rawResponse), headerToken };
     },
     async () => {
       const url = new URL(loginUrl);
       Object.entries(loginPayload).forEach(([key, value]) => url.searchParams.set(key, value));
-      const response = await fetch(url.toString(), {
+      const response = await fetchWithTimeout(url.toString(), {
         method: "GET",
         headers: { Accept: "application/json, text/plain;q=0.9, */*;q=0.8" },
       });
       const rawResponse = await response.text();
-      return { response, rawResponse, parsed: parseResponse(rawResponse) };
+      const headerToken =
+        extractTokenFromHeader(response.headers.get("authorization")) ??
+        extractTokenFromHeader(response.headers.get("Authorization")) ??
+        extractTokenFromHeader(response.headers.get("token")) ??
+        extractTokenFromHeader(response.headers.get("x-access-token"));
+      return { response, rawResponse, parsed: parseResponse(rawResponse), headerToken };
     },
     async () => {
       const url = new URL(loginUrl);
       Object.entries(loginPayload).forEach(([key, value]) => url.searchParams.set(key, value));
-      const response = await fetch(url.toString(), {
+      const response = await fetchWithTimeout(url.toString(), {
         method: "POST",
         headers: { Accept: "application/json, text/plain;q=0.9, */*;q=0.8" },
       });
       const rawResponse = await response.text();
-      return { response, rawResponse, parsed: parseResponse(rawResponse) };
+      const headerToken =
+        extractTokenFromHeader(response.headers.get("authorization")) ??
+        extractTokenFromHeader(response.headers.get("Authorization")) ??
+        extractTokenFromHeader(response.headers.get("token")) ??
+        extractTokenFromHeader(response.headers.get("x-access-token"));
+      return { response, rawResponse, parsed: parseResponse(rawResponse), headerToken };
     },
   ];
 
   let lastResult: ReturnType<typeof interpretResponse> | null = null;
   for (const attempt of attempts) {
-    const { response, rawResponse, parsed } = await attempt();
+    const { response, rawResponse, parsed, headerToken } = await attempt();
     const result = interpretResponse(response, rawResponse, parsed);
     const fields = flattenRecord(parsed);
-    const token = readText(fields, ["Token", "token", "accessToken", "jwt", "data.Token", "data.token"]);
+    const token =
+      readText(fields, [
+        "Token",
+        "token",
+        "accessToken",
+        "AccessToken",
+        "access_token",
+        "jwt",
+        "data.Token",
+        "data.token",
+        "data.AccessToken",
+        "data.accessToken",
+        "data.access_token",
+        "result.Token",
+        "result.token",
+        "result.AccessToken",
+        "result.accessToken",
+      ]) ??
+      headerToken ??
+      extractTokenFromText(rawResponse);
     if (result.success && token) {
       return {
         success: true,
@@ -725,6 +831,16 @@ export async function getGibUserList(
   appType = 1,
   login?: LoginResult | null,
 ) {
+  const effectiveLogin = login ?? (await loginToHizliBilisim(settings));
+  if (!effectiveLogin.success) {
+    return {
+      success: false,
+      note: `Login başarısız: ${effectiveLogin.note}`,
+      users: [],
+      rawResponse: effectiveLogin.rawResponse ?? null,
+    };
+  }
+
   const result = await callRestGet(
     settings,
     "GetGibUserList",
@@ -733,7 +849,7 @@ export async function getGibUserList(
       Type: type,
       Identifier: identifier,
     },
-    login,
+    effectiveLogin,
   );
 
   const root = result.parsed as { gibUserLists?: Array<{ Identifier?: string; Alias?: string; Title?: string; Type?: string }> } | null;
@@ -873,6 +989,33 @@ export async function getDocumentFile(
   };
 }
 
+export async function getMukellefBilgisi(
+  settings: EInvoiceSettings,
+  vknTckn: string,
+  meslekMensubuKey: string,
+  login?: LoginResult | null,
+): Promise<HizliBilisimMukellefResult> {
+  const result = await callRestPost(
+    settings,
+    "MukellefBilgisiSorgulama",
+    {
+      vknTckn,
+      meslekMensubuKey,
+    },
+    login,
+  );
+
+  const root = result.parsed as Record<string, unknown> | null;
+  const mukellef = root?.mukellef ?? (root?.data && typeof root.data === "object" ? (root.data as Record<string, unknown>).mukellef : null);
+
+  return {
+    success: result.success,
+    note: result.note,
+    mukellef: (mukellef && typeof mukellef === "object" ? (mukellef as Record<string, unknown>) : null) ?? null,
+    rawResponse: result.rawResponse,
+  };
+}
+
 export async function controlDocumentXml(settings: EInvoiceSettings, appType: number, documentXml: string, login?: LoginResult | null) {
   return callRestPost(
     settings,
@@ -880,6 +1023,37 @@ export async function controlDocumentXml(settings: EInvoiceSettings, appType: nu
     {
       AppType: appType,
       DocumentXml: documentXml,
+    },
+    login,
+  );
+}
+
+export async function sendApplicationResponseToHizliBilisim(
+  settings: EInvoiceSettings,
+  input: {
+    appType: number;
+    responseCode: "KABUL" | "RED";
+    responseDescription?: string;
+    documentUUID: string;
+    documentId: string;
+    documentDate: string;
+  },
+  login?: LoginResult | null,
+) {
+  return callRestPost(
+    settings,
+    "SendApplicationResponse",
+    {
+      AppType: input.appType,
+      ResponseCode: input.responseCode,
+      ResponseDescription: input.responseDescription ?? "",
+      Documents: [
+        {
+          DocumentUUID: input.documentUUID,
+          DocumentId: input.documentId,
+          DocumentDate: input.documentDate,
+        },
+      ],
     },
     login,
   );
@@ -919,12 +1093,17 @@ export async function sendInvoiceToHizliBilisim(input: HizliBilisimSendInput): P
     const aliasResult = await getGibUserList(settings, destinationIdentifier, "PK", 1, login);
     if (aliasResult.success && aliasResult.users.length > 0) {
       destinationUrn = aliasResult.users[0]?.Alias ?? "";
-    } else if (isEInvoice) {
-      return {
-        success: false,
-        note: `Alıcı için PK alias bulunamadı: ${aliasResult.note}`,
-        rawResponse: aliasResult.rawResponse,
-      };
+    } else {
+      const gbResult = await getGibUserList(settings, destinationIdentifier, "GB", 1, login);
+      if (gbResult.success && gbResult.users.length > 0) {
+        destinationUrn = gbResult.users[0]?.Alias ?? "";
+      } else if (isEInvoice) {
+        return {
+          success: false,
+          note: `Alıcı için PK/GB alias bulunamadı: ${gbResult.note || aliasResult.note}`,
+          rawResponse: gbResult.rawResponse ?? aliasResult.rawResponse,
+        };
+      }
     }
   }
 

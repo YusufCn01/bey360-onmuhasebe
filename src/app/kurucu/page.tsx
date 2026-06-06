@@ -1,5 +1,6 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { CreateTenantForm } from "@/components/forms/create-tenant-form";
+import { PackageChangeRequestReview } from "@/components/forms/package-change-request-review";
 import { AppShell } from "@/components/ui/app-shell";
 import { QuickActionLink, SectionCard, StatusPill, SummaryCard } from "@/components/ui/module-blocks";
 import { getFounderContext } from "@/lib/access";
@@ -10,7 +11,7 @@ import { founderNavGroups } from "@/lib/navigation";
 export default async function FounderPage() {
   const { user } = await getFounderContext();
 
-  const [tenantCount, activeTenantCount, applications, packagePlans, usersCount, recentTenants] = await Promise.all([
+  const [tenantCount, activeTenantCount, applications, packagePlans, usersCount, recentTenants, packageChangeRequests] = await Promise.all([
     db.tenant.count(),
     db.tenant.count({ where: { status: "ACTIVE" } }),
     db.dealerApplication.findMany({
@@ -28,6 +29,12 @@ export default async function FounderPage() {
       orderBy: { createdAt: "desc" },
       include: { branches: true, memberships: true, packagePlan: true },
       take: 5,
+    }),
+    db.packageChangeRequest.findMany({
+      where: { status: "OPEN" },
+      orderBy: { createdAt: "desc" },
+      include: { tenant: true, targetPlan: true },
+      take: 6,
     }),
   ]);
 
@@ -66,6 +73,27 @@ export default async function FounderPage() {
           <SummaryCard title="Açık başvurular" value={formatNumber(openApplications)} detail={`${formatNumber(applications.length)} toplam bayi kaydı`} accent="border-l-4 border-l-rose-500 border-[var(--line)]" />
           <SummaryCard title="Aylık lisans hacmi" value={formatCurrency(recurringRevenue)} detail="Aktif paket dağılımına göre" accent="border-l-4 border-l-emerald-500 border-[var(--line)]" />
         </section>
+
+        <SectionCard eyebrow="Paket Talepleri" title="Onay bekleyen değişim istekleri" action={<Link href="/kurucu/tenantlar" className="text-sm font-bold text-[var(--brand)]">Tenantlar</Link>}>
+          {packageChangeRequests.length === 0 ? (
+            <div className="rounded-[18px] border border-dashed border-[var(--line)] bg-[var(--panel-soft)] px-4 py-8 text-center text-sm text-slate-500">
+              Şu anda bekleyen paket değişim talebi yok.
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {packageChangeRequests.map((request) => (
+                <PackageChangeRequestReview
+                  key={request.id}
+                  requestId={request.id}
+                  tenantName={request.tenant.name}
+                  currentPlanName={request.currentPlanName}
+                  targetPlanName={request.targetPlan.name}
+                  requestNote={request.note}
+                />
+              ))}
+            </div>
+          )}
+        </SectionCard>
 
         <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
           <SectionCard eyebrow="Son Tenantlar" title="Yeni açılan firma hesapları" action={<Link href="/kurucu/tenantlar" className="text-sm font-bold text-[var(--brand)]">Tüm tenantlar</Link>}>

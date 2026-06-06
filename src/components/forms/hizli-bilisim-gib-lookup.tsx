@@ -23,11 +23,19 @@ export function HizliBilisimGibLookup() {
     setNote(null);
     setUsers([]);
     try {
+      if (!identifier.trim()) {
+        throw new Error("VKN / TCKN girilmelidir.");
+      }
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20000);
       const response = await fetch("/api/panel/settings/hizli-bilisim/gib-users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ identifier, type, appType: 1 }),
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
 
       const result = await response.json().catch(() => null);
       if (!response.ok) {
@@ -39,7 +47,11 @@ export function HizliBilisimGibLookup() {
       setUsers(result?.data?.users ?? []);
       setNote(result?.data?.note ?? "Sorgu tamamlandı.");
     } catch (error) {
-      setError(error instanceof Error ? error.message : "GİB kullanıcı sorgulama sırasında beklenmeyen bir hata oluştu.");
+      if (error instanceof Error && error.name === "AbortError") {
+        setError("Sorgu zaman aşımına uğradı. Lütfen tekrar deneyin.");
+      } else {
+        setError(error instanceof Error ? error.message : "GİB kullanıcı sorgulama sırasında beklenmeyen bir hata oluştu.");
+      }
     } finally {
       setBusy(false);
     }
@@ -68,7 +80,7 @@ export function HizliBilisimGibLookup() {
         <button
           type="button"
           onClick={handleLookup}
-          disabled={busy}
+          disabled={busy || !identifier.trim()}
           className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 hover:bg-slate-100 disabled:opacity-60"
         >
           {busy ? "Sorgulanıyor..." : "GİB Kullanıcısını Sorgula"}

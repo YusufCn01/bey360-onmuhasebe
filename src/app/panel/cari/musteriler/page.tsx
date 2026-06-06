@@ -2,6 +2,12 @@
 import { CustomerEInvoiceCheckButton } from "@/components/actions/customer-einvoice-check-button";
 import { EntityDialogActions } from "@/components/actions/entity-dialog-actions";
 import { AppShell } from "@/components/ui/app-shell";
+import {
+  MobileActionChips,
+  MobileFilterBar,
+  MobileHeroPanel,
+  MobileStatStrip,
+} from "@/components/ui/mobile-native-blocks";
 import { SectionCard, StatusPill, SummaryCard } from "@/components/ui/module-blocks";
 import { getTenantContext } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -47,16 +53,40 @@ export default async function CustomersListPage({
       userTitle={`${membership.role} - ${tenant.planName}`}
       topAction={
         <div className="flex flex-wrap items-center gap-3">
-          <Link href="/panel/cari/musteriler/excel" className="inline-flex h-10 items-center rounded-[10px] border border-[var(--line)] bg-white px-4 text-sm font-extrabold text-slate-700 hover:bg-slate-50">
+          <Link href="/panel/cari/musteriler/excel" className="inline-flex h-10 items-center border border-[var(--line)] bg-white px-4 text-sm font-bold text-slate-700 hover:bg-slate-50">
             Excel İşlemleri
           </Link>
-          <Link href="/panel/cari/musteri/yeni" className="inline-flex h-10 items-center rounded-[10px] bg-[var(--brand)] px-4 text-sm font-extrabold text-white shadow-[0_12px_24px_rgba(213,32,42,0.18)] hover:bg-[var(--brand-strong)]">
+          <Link href="/panel/cari/musteri/yeni" className="inline-flex h-10 items-center border border-[var(--brand)] bg-[var(--brand)] px-4 text-sm font-bold text-white hover:bg-[var(--brand-strong)]">
             Yeni Müşteri
           </Link>
         </div>
       }
     >
       <div className="space-y-6">
+        <MobileHeroPanel
+          eyebrow="Cari Operasyonu"
+          title="Müşteri portföyünü sade yönetin"
+          text="Borç, alacak ve e-belge uygunluğunu mobilde kolayca izleyin. Sık kullanılan aksiyonlar üstte hazır dursun."
+        >
+          <MobileStatStrip
+            items={[
+              { label: "Toplam", value: String(filteredCustomers.length) },
+              { label: "Borçlu", value: String(debtCustomers), tone: "warn" },
+              { label: "Alacak", value: formatCurrency(totalCredit), tone: "success" },
+              { label: "e-Belge", value: String(checkedCustomers) },
+            ]}
+          />
+          <div className="mt-4">
+            <MobileActionChips
+              actions={[
+                { href: "/panel/cari/musteri/yeni", label: "Yeni Müşteri" },
+                { href: "/panel/cari/musteriler/excel", label: "Excel" },
+                { href: "/panel/satis-faturalari/yeni", label: "Satış Faturası" },
+              ]}
+            />
+          </div>
+        </MobileHeroPanel>
+
         <div className="grid gap-4 xl:grid-cols-4">
           <SummaryCard title="Toplam Müşteri" value={String(filteredCustomers.length)} detail="Arama sonucu görünen kayıt adedi." accent="border-blue-200" />
           <SummaryCard title="Borç Bakiyesi" value={formatCurrency(totalDebt)} detail={`${debtCustomers} müşteri borç bakiyesi taşıyor.`} accent="border-rose-200" />
@@ -70,21 +100,37 @@ export default async function CustomersListPage({
           action={<Link href="/panel/cari/musteriler" className="text-sm font-bold text-[var(--brand)]">Filtreyi temizle</Link>}
         >
           <div className="space-y-5">
-            <form className="grid gap-3 rounded-[18px] border border-[var(--line)] bg-[linear-gradient(135deg,#ffffff_0%,#f8fafc_100%)] p-4 lg:grid-cols-[minmax(0,1fr)_auto]">
+            <div className="hidden lg:block">
+              <form className="grid gap-3 border border-[var(--line)] bg-[var(--panel-soft)] p-4 lg:grid-cols-[minmax(0,1fr)_auto]">
               <div className="space-y-2">
                 <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Hızlı Arama</p>
                 <input name="q" defaultValue={query} placeholder="Ünvan, cari kodu, vergi no, telefon veya şehir ara" />
               </div>
               <div className="flex items-end gap-3">
-                <button className="inline-flex h-11 items-center rounded-[12px] bg-[var(--brand)] px-5 text-sm font-extrabold text-white hover:bg-[var(--brand-strong)]">
+                <button className="inline-flex h-11 items-center border border-[var(--brand)] bg-[var(--brand)] px-5 text-sm font-bold text-white hover:bg-[var(--brand-strong)]">
                   Filtrele
                 </button>
               </div>
-            </form>
+              </form>
+            </div>
+
+            <MobileFilterBar>
+              <form className="grid gap-2" action="/panel/cari/musteriler">
+                <input
+                  name="q"
+                  defaultValue={query}
+                  placeholder="Ünvan, vergi no veya şehir ara"
+                  className="h-11 border border-[var(--line)] bg-white px-3 text-sm font-medium text-slate-700 outline-none"
+                />
+                <button className="inline-flex h-11 items-center justify-center border border-[var(--brand)] bg-[var(--brand)] px-4 text-sm font-bold text-white">
+                  Filtrele
+                </button>
+              </form>
+            </MobileFilterBar>
 
             <div className="space-y-4 lg:hidden">
               {filteredCustomers.length === 0 ? (
-                <div className="rounded-[18px] border border-dashed border-[var(--line)] bg-white px-4 py-10 text-center text-sm text-slate-500">
+                <div className="border border-dashed border-[var(--line)] bg-white px-4 py-10 text-center text-sm text-slate-500">
                   Aramanıza uygun müşteri kaydı bulunamadı.
                 </div>
               ) : (
@@ -95,9 +141,9 @@ export default async function CustomersListPage({
                   const einvoiceCheckedAt = customer.eInvoiceCheckedAt ? formatDate(customer.eInvoiceCheckedAt) : null;
 
                   return (
-                    <article key={customer.id} className="rounded-[20px] border border-[var(--line)] bg-white p-4 shadow-[0_14px_34px_rgba(15,23,42,0.06)]">
+                    <article key={customer.id} className="border border-[var(--line)] bg-white p-4">
                       <div className="flex items-start gap-3">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-[linear-gradient(135deg,#fee2e2_0%,#ffffff_100%)] text-sm font-black text-[var(--brand)] shadow-[inset_0_0_0_1px_rgba(220,38,38,0.08)]">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center border border-[var(--line)] bg-[var(--panel-soft)] text-sm font-black text-[var(--brand)]">
                           {initials(customer.name)}
                         </div>
                         <div className="min-w-0 flex-1">
@@ -114,11 +160,11 @@ export default async function CustomersListPage({
                       </div>
 
                       <div className="mt-4 grid grid-cols-2 gap-2">
-                        <div className="rounded-[14px] border border-rose-100 bg-rose-50/70 px-3 py-2.5">
+                        <div className="border border-rose-100 bg-rose-50/70 px-3 py-2.5">
                           <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-rose-400">Borç</p>
                           <p className="mt-1 text-sm font-extrabold text-rose-700">{formatCurrency(debt)}</p>
                         </div>
-                        <div className="rounded-[14px] border border-emerald-100 bg-emerald-50/70 px-3 py-2.5">
+                        <div className="border border-emerald-100 bg-emerald-50/70 px-3 py-2.5">
                           <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-400">Alacak</p>
                           <p className="mt-1 text-sm font-extrabold text-emerald-700">{formatCurrency(credit)}</p>
                         </div>
@@ -140,7 +186,7 @@ export default async function CustomersListPage({
                       </div>
 
                       <div className="mt-4 flex flex-wrap gap-2">
-                        <Link href="/panel/satis-faturalari/yeni" className="inline-flex h-10 items-center rounded-[10px] border border-[var(--line)] bg-white px-3.5 text-xs font-bold text-slate-700 hover:bg-slate-100">
+                        <Link href="/panel/satis-faturalari/yeni" className="inline-flex h-10 items-center border border-[var(--line)] bg-white px-3.5 text-xs font-bold text-slate-700 hover:bg-slate-100">
                           Satış Faturası
                         </Link>
                         <CustomerEInvoiceCheckButton customerId={customer.id} />
@@ -176,7 +222,7 @@ export default async function CustomersListPage({
               )}
             </div>
 
-            <div className="hidden overflow-hidden rounded-[18px] border border-[var(--line)] bg-white shadow-[0_18px_40px_rgba(15,23,42,0.05)] lg:block">
+            <div className="hidden overflow-hidden border border-[var(--line)] bg-white lg:block">
               <div className="hidden grid-cols-[minmax(260px,1.2fr)_minmax(240px,0.95fr)_minmax(180px,0.8fr)_auto] gap-4 border-b border-[var(--line)] bg-slate-50/80 px-5 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400 lg:grid">
                 <span>Müşteri</span>
                 <span>İletişim ve e-Belge</span>
@@ -198,7 +244,7 @@ export default async function CustomersListPage({
                       <div key={customer.id} className="px-5 py-4 transition hover:bg-slate-50/70">
                         <div className="grid gap-4 lg:grid-cols-[minmax(260px,1.2fr)_minmax(240px,0.95fr)_minmax(180px,0.8fr)_auto] lg:items-center">
                           <div className="flex items-start gap-4">
-                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-[linear-gradient(135deg,#fee2e2_0%,#ffffff_100%)] text-sm font-black text-[var(--brand)] shadow-[inset_0_0_0_1px_rgba(220,38,38,0.08)]">
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center border border-[var(--line)] bg-[var(--panel-soft)] text-sm font-black text-[var(--brand)]">
                               {initials(customer.name)}
                             </div>
                             <div className="min-w-0">
@@ -230,18 +276,18 @@ export default async function CustomersListPage({
                           </div>
 
                           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                            <div className="rounded-[12px] border border-rose-100 bg-rose-50/70 px-3 py-2.5">
+                            <div className="border border-rose-100 bg-rose-50/70 px-3 py-2.5">
                               <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-rose-400">Borç</p>
                               <p className="mt-1 text-sm font-extrabold text-rose-700">{formatCurrency(debt)}</p>
                             </div>
-                            <div className="rounded-[12px] border border-emerald-100 bg-emerald-50/70 px-3 py-2.5">
+                            <div className="border border-emerald-100 bg-emerald-50/70 px-3 py-2.5">
                               <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-emerald-400">Alacak</p>
                               <p className="mt-1 text-sm font-extrabold text-emerald-700">{formatCurrency(credit)}</p>
                             </div>
                           </div>
 
                           <div className="flex flex-wrap items-center justify-end gap-2 lg:flex-nowrap">
-                            <Link href="/panel/satis-faturalari/yeni" className="inline-flex h-10 items-center rounded-[10px] border border-[var(--line)] bg-white px-3.5 text-xs font-bold text-slate-700 hover:bg-slate-100">
+                            <Link href="/panel/satis-faturalari/yeni" className="inline-flex h-10 items-center border border-[var(--line)] bg-white px-3.5 text-xs font-bold text-slate-700 hover:bg-slate-100">
                               Satış Faturası
                             </Link>
                             <CustomerEInvoiceCheckButton customerId={customer.id} />

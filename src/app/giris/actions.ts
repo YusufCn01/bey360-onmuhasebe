@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { clearLockCookie, createSessionToken, setSessionCookie, verifyPassword } from "@/lib/auth";
+import { sendVerificationEmail } from "@/lib/email-verification";
 
 export async function loginAction(formData: FormData) {
   const email = String(formData.get("email") || "").trim().toLowerCase();
@@ -43,5 +44,22 @@ export async function loginAction(formData: FormData) {
   await setSessionCookie(token);
   await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
-  redirect(user.globalRole === "FOUNDER" ? "/kurucu" : "/panel");
+  if (user.globalRole === "FOUNDER") {
+    redirect("/kurucu");
+  }
+
+  if (!user.emailVerifiedAt && !user.email.endsWith(".local")) {
+    await sendVerificationEmail({
+      userId: user.id,
+      email: user.email,
+      fullName: user.fullName,
+    });
+    redirect(`/kayit/dogrula?email=${encodeURIComponent(user.email)}`);
+  }
+
+  if (!membership?.tenant?.onboardingCompletedAt && !user.email.endsWith(".local")) {
+    redirect("/panel/onboarding");
+  }
+
+  redirect("/panel");
 }

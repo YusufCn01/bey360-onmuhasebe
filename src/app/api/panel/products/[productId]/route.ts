@@ -1,4 +1,5 @@
-﻿import { revalidatePath } from "next/cache";
+import { revalidatePath } from "next/cache";
+import { ProductKind } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getTenantRouteContext } from "@/lib/session-context";
@@ -24,23 +25,29 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const duplicate = await db.product.findFirst({ where: { tenantId: context.tenant.id, code, id: { not: productId } } });
   if (duplicate) return NextResponse.json({ success: false, error: "Bu ürün kodu başka bir kartta kullanılıyor." }, { status: 409 });
 
+  const kind = body?.kind === ProductKind.SERVICE ? ProductKind.SERVICE : ProductKind.PRODUCT;
+  const withholdingRate = kind === ProductKind.SERVICE ? parseNumber(body?.withholdingRate, 0) : 0;
+
   const product = await db.product.update({
     where: { id: productId },
     data: {
       code,
       name,
+      kind,
       barcode: body?.barcode?.trim() || null,
       description: body?.description?.trim() || null,
       category: body?.category?.trim() || null,
       brand: body?.brand?.trim() || null,
       imageUrl: body?.imageUrl?.trim() || null,
-      unit: body?.unit?.trim() || "Adet",
+      withholdingRate,
+      withholdingCode: kind === ProductKind.SERVICE ? body?.withholdingCode?.trim() || null : null,
+      unit: body?.unit?.trim() || (kind === ProductKind.SERVICE ? "Hizmet" : "Adet"),
       salePrice: parseNumber(body?.salePrice, 0),
       salePrice2: parseNumber(body?.salePrice2, 0),
       salePrice3: parseNumber(body?.salePrice3, 0),
       salePrice4: parseNumber(body?.salePrice4, 0),
       purchasePrice: parseNumber(body?.purchasePrice, 0),
-      stockQty: parseNumber(body?.stockQty, 0),
+      stockQty: kind === ProductKind.SERVICE ? 0 : parseNumber(body?.stockQty, 0),
       vatRate: parseNumber(body?.vatRate, 20),
     },
   });
@@ -55,7 +62,10 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
   if (!context) return NextResponse.json({ success: false, error: "Bu işlem için giriş yapmalısınız." }, { status: 403 });
 
   const { productId } = await params;
-  const product = await db.product.findFirst({ where: { id: productId, tenantId: context.tenant.id }, include: { quoteItems: { take: 1 }, orderItems: { take: 1 }, invoiceItems: { take: 1 } } });
+  const product = await db.product.findFirst({
+    where: { id: productId, tenantId: context.tenant.id },
+    include: { quoteItems: { take: 1 }, orderItems: { take: 1 }, invoiceItems: { take: 1 } },
+  });
   if (!product) return NextResponse.json({ success: false, error: "Ürün bulunamadı." }, { status: 404 });
   if (product.quoteItems.length || product.orderItems.length || product.invoiceItems.length) {
     return NextResponse.json({ success: false, error: "Bu ürün teklif, sipariş veya fatura ile bağlı olduğu için silinemez." }, { status: 409 });
