@@ -5,7 +5,7 @@ const next = require('next');
 const dev = process.env.NODE_ENV !== 'production';
 // Hostinger'ın atadığı portu alır, yoksa 3000 kullanır
 const port = process.env.PORT || 3000;
-const hostname = '0.0.0.0';
+const hostname = '127.0.0.1';
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
@@ -28,4 +28,7 @@ app.prepare().then(() => {
     .listen(port, () => {
       console.log(`> Uygulama hazır: http://${hostname}:${port}`);
     });
+}).catch((err) => {
+  console.error('Next.js başlatılamadı (Build hatası veya Veritabanı bağlantısı):', err);
+  process.exit(1);
 });
