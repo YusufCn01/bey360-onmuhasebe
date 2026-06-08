@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack --hostname 0.0.0.0",
-    "build": "next build",
-    "postinstall": "node -e \"const fs=require('fs'); fs.mkdirSync('.next/server', {recursive:true}); fs.writeFileSync('.next/server/middleware.js', ''); fs.writeFileSync('.next/server/middleware.js.nft.json', JSON.stringify({version:1,files:[]}));\" && prisma generate && next build",
+    "build": "next build --webpack",
+    "postinstall": "prisma generate && npm run build",
     "start": "node server.js",
     "lint": "eslint",
     "prisma:generate": "prisma generate",
