@@ -35,3 +35,15 @@ export const createClient = (request: NextRequest) => {
 
   return supabaseResponse
 };
+
+// Next.js'in bu dosyayı geçerli bir middleware olarak tanıması ve çalıştırması için gereken fonksiyon
+export async function middleware(request: NextRequest) {
+  return createClient(request);
+}
+
+// Middleware'in gereksiz yere statik dosyalarda (resimler vb.) çalışmasını engelleyen ayar
+export const config = {
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
+};
