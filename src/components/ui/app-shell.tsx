@@ -199,12 +199,12 @@ function DesktopSidebar({
   environmentLabel: string;
 }) {
   return (
-    <aside className="hidden w-[318px] shrink-0 border-r border-[#d7dee6] bg-[#f7f9fb] text-slate-900 lg:flex lg:flex-col">
-      <div className="border-b border-[#d7dee6] p-5">
-        <Link href="/panel" className="block overflow-hidden border border-[#d7dee6] bg-white">
-          <div className="border-b border-[#eef2f5] px-4 py-4">
+    <aside className="hidden w-[318px] shrink-0 border-r border-[var(--line)] bg-[var(--sidebar)] text-[var(--text)] shadow-[1px_0_10px_rgba(0,0,0,0.03)] lg:flex lg:flex-col z-40">
+      <div className="border-b border-[var(--line)] p-5">
+        <Link href="/panel" className="block overflow-hidden rounded-xl border border-[var(--line)] bg-white shadow-sm transition hover:border-[var(--brand)] hover:shadow-md">
+          <div className="border-b border-[var(--surface-muted)] px-4 py-4">
             <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center border border-[#e4eaf0] bg-white">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-[var(--surface-strong)] bg-white">
                 <Image
                   src="/brand/bey360-logo-transparent.png"
                   alt="Bey360"
@@ -222,12 +222,12 @@ function DesktopSidebar({
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-3 bg-[#fbfcfd] px-4 py-3 text-[11px]">
+          <div className="flex items-center justify-between gap-3 bg-[var(--surface-muted)] px-4 py-3 text-[11px]">
             <div>
-              <p className="font-black uppercase tracking-[0.14em] text-slate-400">Çalışma Modu</p>
-              <p className="mt-1 font-semibold text-slate-700">Kurumsal panel</p>
+              <p className="font-black uppercase tracking-[0.14em] text-[var(--muted)]">Çalışma Modu</p>
+              <p className="mt-1 font-semibold text-[var(--text)]">Kurumsal panel</p>
             </div>
-            <span className="border border-[#d7dee6] bg-white px-2.5 py-1 font-black uppercase tracking-[0.14em] text-slate-700">
+            <span className="rounded-md border border-[var(--line)] bg-white px-2.5 py-1 font-black uppercase tracking-[0.14em] text-[var(--text)]">
               {environmentLabel}
             </span>
           </div>
@@ -249,15 +249,15 @@ function DesktopSidebar({
                   return (
                     <details key={item.label} open={active} className="group">
                       <summary
-                        className={`flex cursor-pointer list-none items-center gap-3 border px-3 py-3 text-[13px] font-semibold marker:content-none ${
+                        className={`flex cursor-pointer list-none items-center gap-3 rounded-xl border px-3 py-3 text-[13px] font-semibold marker:content-none transition ${
                           active
-                            ? "border-[#cfd8e2] bg-white text-slate-950"
-                            : "border-transparent text-slate-700 hover:border-[#e2e8ef] hover:bg-white"
+                            ? "border-[var(--brand-soft)] bg-[var(--brand-ghost)] text-[var(--brand-navy)] shadow-sm"
+                            : "border-transparent text-[var(--text)] hover:border-[var(--line)] hover:bg-[var(--surface-muted)]"
                         }`}
                       >
                         <span
-                          className={`inline-flex h-9 w-9 items-center justify-center border ${
-                            active ? "border-[#d8e1ea] bg-[#f5f8fb] text-[var(--brand)]" : "border-[#e2e8ef] bg-white text-slate-500"
+                          className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border transition ${
+                            active ? "border-[var(--brand-soft)] bg-white text-[var(--brand)] shadow-sm" : "border-[var(--line)] bg-[var(--surface)] text-[var(--muted)]"
                           }`}
                         >
                           {iconContent}
@@ -272,10 +272,10 @@ function DesktopSidebar({
                             <Link
                               key={child.href}
                               href={child.href}
-                              className={`block border-l px-3 py-2 text-[12px] ${
+                              className={`block border-l-2 px-3 py-2 text-[12px] transition ${
                                 childActive
-                                  ? "border-l-[#2c4a63] bg-white text-slate-950 font-bold"
-                                  : "border-l-[#d8e1ea] text-slate-500 hover:border-l-[#9caabc] hover:bg-white hover:text-slate-900"
+                                  ? "border-l-[var(--brand)] bg-[var(--brand-ghost)] text-[var(--brand-navy)] font-bold rounded-r-lg"
+                                  : "border-l-[var(--line)] text-[var(--muted)] hover:border-l-[var(--brand-strong)] hover:bg-[var(--surface-muted)] hover:text-[var(--text)] hover:rounded-r-lg"
                               }`}
                             >
                               {child.label}
@@ -291,13 +291,13 @@ function DesktopSidebar({
                   <Link
                     key={item.href}
                     href={item.href ?? "#"}
-                    className={`flex items-center gap-3 border-l-2 px-3 py-3 text-[13px] font-semibold transition ${
-                      active ? "border-l-[#2c4a63] bg-white text-slate-950" : "border-l-transparent text-slate-700 hover:bg-white hover:text-slate-950"
+                    className={`flex items-center gap-3 rounded-xl border px-3 py-3 text-[13px] font-semibold transition ${
+                      active ? "border-[var(--brand-soft)] bg-[var(--brand-ghost)] text-[var(--brand-navy)] shadow-sm" : "border-transparent text-[var(--text)] hover:border-[var(--line)] hover:bg-[var(--surface-muted)]"
                     }`}
                   >
                     <span
-                      className={`inline-flex h-9 w-9 items-center justify-center border ${
-                        active ? "border-[#d8e1ea] bg-[#f5f8fb] text-[var(--brand)]" : "border-[#e2e8ef] bg-white text-slate-500"
+                      className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border transition ${
+                        active ? "border-[var(--brand-soft)] bg-white text-[var(--brand)] shadow-sm" : "border-[var(--line)] bg-[var(--surface)] text-[var(--muted)]"
                       }`}
                     >
                       {iconContent}
@@ -367,7 +367,7 @@ export async function AppShell({
         <DesktopSidebar currentPath={currentPath} navGroups={navGroups} environmentLabel={environmentLabel} />
 
         <main className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-30 border-b border-[var(--line)] bg-[var(--panel)]">
+          <header className="sticky top-0 z-30 border-b border-[var(--line)] bg-[var(--panel)] shadow-sm">
             <div className="px-4 py-3 lg:px-7 lg:py-4">
               <div className="hidden items-center justify-between gap-6 lg:flex">
                 <div className="min-w-0">

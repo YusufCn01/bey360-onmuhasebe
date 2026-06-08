@@ -90,10 +90,12 @@ function MetricCard({
   accent?: string;
 }) {
   return (
-    <article className={`border border-[var(--line)] bg-[var(--panel)] p-5 ${accent ?? ""}`}>
-      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">{title}</p>
-      <p className="mt-3 text-[1.8rem] font-extrabold tracking-tight text-slate-950">{value}</p>
-      <p className="mt-4 border-t border-[var(--line)] pt-3 text-sm text-slate-600">{detail}</p>
+    <article className={`erp-card p-6 transition hover:shadow-md ${accent ?? ""}`}>
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">{title}</p>
+      </div>
+      <p className="mt-3 text-[1.8rem] font-extrabold tracking-tight text-[var(--text)]">{value}</p>
+      <p className="mt-4 border-t border-[var(--line)] pt-3 text-sm text-[var(--muted)]">{detail}</p>
     </article>
   );
 }
@@ -110,11 +112,11 @@ function Panel({
   children: ReactNode;
 }) {
   return (
-    <section className="border border-[var(--line)] bg-[var(--panel)] p-5">
-      <div className="mb-4 flex items-start justify-between gap-4 border-b border-[var(--line)] pb-4">
+    <section className="erp-card p-5 lg:p-6">
+      <div className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--line)] pb-4">
         <div>
-          <h2 className="text-[1.02rem] font-extrabold tracking-tight text-slate-900">{title}</h2>
-          {subtitle ? <p className="mt-1 text-sm text-slate-600">{subtitle}</p> : null}
+          <h2 className="text-[1.02rem] font-extrabold tracking-tight text-[var(--brand-navy)]">{title}</h2>
+          {subtitle ? <p className="mt-1 text-sm text-[var(--muted)]">{subtitle}</p> : null}
         </div>
         {action}
       </div>
@@ -311,7 +313,7 @@ export default async function PanelPage({
             insightCards={insightCards}
             recommendations={recommendations}
           />
-          <Link href="/panel/satis-faturalari/yeni" className="inline-flex h-10 items-center justify-center border border-slate-900 bg-slate-900 px-4 text-sm font-bold text-white hover:bg-slate-800">
+          <Link href="/panel/satis-faturalari/yeni" className="inline-flex h-10 items-center justify-center rounded-lg bg-[var(--brand)] px-5 text-sm font-bold text-white shadow-sm transition hover:bg-[var(--brand-strong)]">
             Yeni Fatura
           </Link>
         </div>
@@ -355,18 +357,18 @@ export default async function PanelPage({
             <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
               <div>
                 <p className="max-w-3xl text-[1rem] leading-8 text-slate-700">{focusText}</p>
-                <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                  <div className="border border-[var(--line)] bg-[var(--panel-soft)] px-4 py-4">
-                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Net pozisyon</p>
-                    <p className="mt-2 text-2xl font-extrabold text-slate-950">{formatCurrency(netPosition)}</p>
+                <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                  <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] px-5 py-4">
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">Net pozisyon</p>
+                    <p className="mt-2 text-2xl font-extrabold text-[var(--brand-navy)]">{formatCurrency(netPosition)}</p>
                   </div>
-                  <div className="border border-[var(--line)] bg-[var(--panel-soft)] px-4 py-4">
-                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Kasa + banka</p>
-                    <p className="mt-2 text-2xl font-extrabold text-slate-950">{formatCurrency(cashTotal + bankTotal)}</p>
+                  <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] px-5 py-4">
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">Kasa + banka</p>
+                    <p className="mt-2 text-2xl font-extrabold text-[var(--text)]">{formatCurrency(cashTotal + bankTotal)}</p>
                   </div>
-                  <div className="border border-[var(--line)] bg-[var(--panel-soft)] px-4 py-4">
-                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Geciken iş</p>
-                    <p className="mt-2 text-2xl font-extrabold text-slate-950">{formatNumber(openReminders)}</p>
+                  <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] px-5 py-4">
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[var(--muted)]">Geciken iş</p>
+                    <p className="mt-2 text-2xl font-extrabold text-[var(--danger)]">{formatNumber(openReminders)}</p>
                   </div>
                 </div>
               </div>
@@ -385,21 +387,21 @@ export default async function PanelPage({
           </Panel>
 
           <Panel title="Bugün izlenecekler" subtitle="Kısa aksiyon listesi">
-            <div className="space-y-3">
-              <div className="border border-[var(--line)] bg-[var(--panel-soft)] px-4 py-4">
-                <p className="text-sm font-extrabold text-slate-900">Kritik ödeme</p>
-                <p className="mt-2 text-xl font-extrabold text-slate-950">{formatCurrency(urgentDueAmount)}</p>
-                <p className="mt-1 text-sm text-slate-600">Bu hafta içinde kapanması gereken ödeme tutarı.</p>
+            <div className="space-y-4">
+              <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] px-5 py-4">
+                <p className="text-sm font-extrabold text-[var(--brand-navy)]">Kritik ödeme</p>
+                <p className="mt-2 text-xl font-extrabold text-[var(--text)]">{formatCurrency(urgentDueAmount)}</p>
+                <p className="mt-1 text-sm text-[var(--muted)]">Bu hafta içinde kapanması gereken ödeme tutarı.</p>
               </div>
-              <div className="border border-[var(--line)] bg-[var(--panel-soft)] px-4 py-4">
-                <p className="text-sm font-extrabold text-slate-900">Satış eğilimi</p>
-                <p className="mt-2 text-xl font-extrabold text-slate-950">%{formatNumber(Number(Math.abs(salesDelta).toFixed(1)))}</p>
-                <p className="mt-1 text-sm text-slate-600">Önceki döneme göre {salesDelta >= 0 ? "artış" : "gerileme"} görünüyor.</p>
+              <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] px-5 py-4">
+                <p className="text-sm font-extrabold text-[var(--brand-navy)]">Satış eğilimi</p>
+                <p className="mt-2 text-xl font-extrabold text-[var(--text)]">%{formatNumber(Number(Math.abs(salesDelta).toFixed(1)))}</p>
+                <p className="mt-1 text-sm text-[var(--muted)]">Önceki döneme göre {salesDelta >= 0 ? "artış" : "gerileme"} görünüyor.</p>
               </div>
-              <div className="border border-[var(--line)] bg-[var(--panel-soft)] px-4 py-4">
-                <p className="text-sm font-extrabold text-slate-900">Alış baskısı</p>
-                <p className="mt-2 text-xl font-extrabold text-slate-950">%{formatNumber(Number(Math.abs(purchaseDelta).toFixed(1)))}</p>
-                <p className="mt-1 text-sm text-slate-600">Son 30 gün alış hacmi önceki döneme göre {purchaseDelta >= 0 ? "yukarıda" : "aşağıda"}.</p>
+              <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] px-5 py-4">
+                <p className="text-sm font-extrabold text-[var(--brand-navy)]">Alış baskısı</p>
+                <p className="mt-2 text-xl font-extrabold text-[var(--text)]">%{formatNumber(Number(Math.abs(purchaseDelta).toFixed(1)))}</p>
+                <p className="mt-1 text-sm text-[var(--muted)]">Son 30 gün alış hacmi önceki döneme göre {purchaseDelta >= 0 ? "yukarıda" : "aşağıda"}.</p>
               </div>
             </div>
           </Panel>
@@ -467,7 +469,7 @@ export default async function PanelPage({
               ) : (
                 topCustomers.map((customer, index) => (
                   <div key={customer.name} className="flex items-start gap-3 border-b border-[var(--line)] pb-3 last:border-b-0 last:pb-0">
-                    <span className="inline-flex h-7 w-7 items-center justify-center border border-[var(--line)] bg-[var(--panel-soft)] text-xs font-black text-slate-700">
+                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[var(--surface-strong)] text-xs font-black text-[var(--brand-navy)]">
                       {index + 1}
                     </span>
                     <div className="min-w-0 flex-1">
@@ -509,11 +511,11 @@ export default async function PanelPage({
                   {latestSales.map((invoice) => {
                     const status = getInvoiceStatusLabel(invoice.status);
                     return (
-                      <tr key={invoice.id} className="hover:bg-[var(--panel-soft)]">
-                        <td className="px-3 py-4 text-slate-600">{formatDate(invoice.issueDate)}</td>
-                        <td className="px-3 py-4 font-semibold text-slate-900">{invoice.customer?.name ?? invoice.supplier?.name ?? "Genel kayıt"}</td>
-                        <td className="px-3 py-4 font-mono text-slate-700">{invoice.invoiceNo}</td>
-                        <td className="px-3 py-4 font-extrabold text-slate-900">{formatCurrency(Number(invoice.grandTotal))}</td>
+                      <tr key={invoice.id} className="hover:bg-[var(--surface-muted)] transition">
+                        <td className="px-3 py-4 text-[var(--muted)]">{formatDate(invoice.issueDate)}</td>
+                        <td className="px-3 py-4 font-semibold text-[var(--brand-navy)]">{invoice.customer?.name ?? invoice.supplier?.name ?? "Genel kayıt"}</td>
+                        <td className="px-3 py-4 font-mono text-[var(--muted)]">{invoice.invoiceNo}</td>
+                        <td className="px-3 py-4 font-extrabold text-[var(--text)]">{formatCurrency(Number(invoice.grandTotal))}</td>
                         <td className="px-3 py-4">
                           <StatusPill label={status.label} tone={status.tone} />
                         </td>
@@ -551,9 +553,9 @@ export default async function PanelPage({
           <Panel title="Akıllı öneriler" subtitle="Bugün için kısa aksiyon listesi">
             <div className="space-y-3">
               {recommendations.slice(0, 4).map((item) => (
-                <Link key={item.title} href={item.href} className="block border border-[var(--line)] bg-[var(--panel-soft)] px-4 py-3 hover:bg-[var(--panel)]">
-                  <p className="text-sm font-extrabold text-slate-900">{item.title}</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-600">{item.detail}</p>
+                <Link key={item.title} href={item.href} className="block rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] px-5 py-4 transition hover:border-[var(--brand-strong)] hover:shadow-sm hover:bg-white">
+                  <p className="text-sm font-extrabold text-[var(--brand-navy)]">{item.title}</p>
+                  <p className="mt-1 text-sm leading-6 text-[var(--muted)]">{item.detail}</p>
                 </Link>
               ))}
             </div>

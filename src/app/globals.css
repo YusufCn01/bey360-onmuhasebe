@@ -1,35 +1,39 @@
 @import "tailwindcss";
 
 :root {
-  --surface: #f3f5f7;
-  --surface-muted: #ebeff3;
-  --surface-strong: #dde4ea;
+  --surface: #f4f7fb;
+  --surface-muted: #eef2f6;
+  --surface-strong: #e2e8f0;
   --panel: #ffffff;
-  --panel-soft: #f7f9fb;
-  --panel-strong: #edf2f6;
-  --sidebar: #11161d;
-  --sidebar-soft: #1a212a;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --brand: #2c4a63;
-  --brand-strong: #21384b;
-  --brand-soft: rgba(44, 74, 99, 0.12);
-  --brand-ghost: rgba(44, 74, 99, 0.06);
-  --text: #1a2430;
-  --muted: #637182;
-  --line: #d8e0e8;
-  --line-strong: #c2ccd6;
-  --success: #1f7a59;
-  --warning: #a66c20;
-  --danger: #be5151;
-  --shadow-soft: none;
-  --shadow-medium: none;
-  --shadow-strong: none;
+  --panel-soft: #f8fafc;
+  --panel-strong: #f1f5f9;
+  --sidebar: #ffffff;
+  --sidebar-soft: #f8fafc;
+  --sidebar-border: #e2e8f0;
+  --brand: #f26522; /* Logo Orange */
+  --brand-strong: #e0561b;
+  --brand-soft: rgba(242, 101, 34, 0.12);
+  --brand-ghost: rgba(242, 101, 34, 0.06);
+  --brand-navy: #1d3c6a; /* Logo Navy */
+  --text: #1e293b;
+  --muted: #64748b;
+  --line: #e2e8f0;
+  --line-strong: #cbd5e1;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --shadow-soft: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-medium: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-strong: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 }
 
 @theme inline {
   --color-background: var(--surface);
   --color-foreground: var(--text);
   --font-sans: var(--font-sans-app);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-navy: var(--brand-navy);
 }
 
 * {
@@ -147,7 +151,8 @@ textarea:focus {
 .erp-card {
   border: 1px solid var(--line);
   background: var(--panel);
-  box-shadow: none;
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow-soft);
 }
 
 .erp-hairline {
