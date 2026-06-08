@@ -2,12 +2,13 @@ const { createServer } = require('http');
 const { parse } = require('url');
 const next = require('next');
 
-const dev = process.env.NODE_ENV !== 'production';
+// Hostinger'da DEV modunda açılmasını (sonsuz yüklenmeyi) kesin olarak engelliyoruz
+const dev = false;
 // Hostinger'ın atadığı portu alır, yoksa 3000 kullanır
 const port = process.env.PORT || 3000;
 const hostname = '127.0.0.1';
 
-const app = next({ dev, hostname, port });
+const app = next({ dev, port });
 const handle = app.getRequestHandler();
 
 app.prepare().then(() => {
@@ -26,7 +27,7 @@ app.prepare().then(() => {
       process.exit(1);
     })
     .listen(port, () => {
-      console.log(`> Uygulama hazır: http://${hostname}:${port}`);
+      console.log(`> Uygulama hazır: Port ${port} uzerinde dinleniyor`);
     });
 }).catch((err) => {
   console.error('Next.js başlatılamadı (Build hatası veya Veritabanı bağlantısı):', err);
